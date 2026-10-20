@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light dark" />
+<title>Hallmark docs</title>
+<meta name="author" content="Luciano Federico Pereira" />
+<meta name="description" content="The Hallmark manual: the logger, handlers, formatters, processors, the event catalog, Laravel and testing, from installation to the reference." />
+<link rel="canonical" href="https://cruciblephp.github.io/hallmark/docs.html" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Hallmark docs" />
+<meta property="og:description" content="The Hallmark manual, from installation to the reference." />
+<meta name="twitter:card" content="summary" />
+<meta name="theme-color" content="#faf8f1" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#161615" media="(prefers-color-scheme: dark)" />
+<link rel="icon" href="assets/favicon.ico" sizes="48x48" />
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+<link rel="manifest" href="assets/site.webmanifest" />
+<link rel="stylesheet" href="assets/docs.css" />
+</head>
+<body data-repo="cruciblephp/hallmark" data-source="">
+
+<!-- The shell only: assets/docs.js renders the repository's own Markdown (README.md, docs/*.md), served beside this page. -->
+
+<svg style="position:absolute; width:0; height:0; overflow:hidden" aria-hidden="true">
+  <!-- The mark: assets/hallmark.svg's own paths, the viewBox cropped to the artwork. -->
+  <symbol id="icon-hallmark" viewBox="49.78 26.54 300.44 345.65">
+  <g fill="#e80c08">
+      <path fill-rule="evenodd" d="M 200.00,26.54 L 348.02,112.00 L 200.00,197.46 L 51.98,112.00 Z M 200.00,45.60 L 315.00,112.00 L 200.00,178.40 L 85.00,112.00 Z"></path>
+      <path d="M 49.78,115.81 L 197.80,201.27 L 197.80,267.07 L 181.29,257.54 L 181.29,210.80 L 66.29,144.41 L 66.29,277.20 L 181.29,343.59 L 181.29,296.85 L 197.80,306.39 L 197.80,372.19 L 49.78,286.73 Z"></path>
+      <path d="M 350.22,115.81 L 202.20,201.27 L 202.20,267.07 L 218.71,257.54 L 218.71,210.80 L 333.71,144.41 L 333.71,277.20 L 218.71,343.59 L 218.71,296.85 L 202.20,306.39 L 202.20,372.19 L 350.22,286.73 Z"></path>
+      <path d="M 79.61,167.48 L 109.22,184.57 L 109.22,286.60 L 79.61,269.51 Z M 320.39,167.48 L 290.78,184.57 L 290.78,286.60 L 320.39,269.51 Z"></path>
+  </g>
+  <path fill="#f17510" d="M 115.64,226.98 L 200.00,275.68 L 284.36,226.98 L 284.36,251.62 L 200.00,300.32 L 115.64,251.62 Z"></path>
+  </symbol>
+</svg>
+
+<header class="topbar">
+  <a class="brand" href="./">
+    <svg class="logo-mark" aria-hidden="true"><use href="#icon-hallmark"/></svg>
+    <span>Hallmark</span>
+  </a>
+  <button id="search-trigger" class="search-trigger" type="button" aria-haspopup="dialog">
+    <span>Search the docs</span>
+    <kbd>/</kbd>
+  </button>
+  <nav class="topnav">
+    <a href="./">Home</a>
+    <a href="changelog.html">Changelog</a>
+    <a href="https://github.com/cruciblephp/hallmark">GitHub</a>
+  </nav>
+</header>
+
+<div class="shell">
+  <aside class="sidebar">
+    <div class="sidebar-head">
+      <h2>Documents</h2>
+      <div class="stepper">
+        <button id="prev-entry" type="button" title="Previous document (left arrow)"
+                aria-label="Previous document">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 L8 12 L15 19" /></svg>
+        </button>
+        <button id="next-entry" type="button" title="Next document (right arrow)"
+                aria-label="Next document">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5 L16 12 L9 19" /></svg>
+        </button>
+      </div>
+    </div>
+    <div id="nav" class="nav"></div>
+  </aside>
+  <main>
+    <article id="doc" aria-busy="true">
+      <p class="loading">Loading the docs...</p>
+    </article>
+  </main>
+  <aside class="toc" aria-label="On this page">
+    <h2>On this page</h2>
+    <div id="toc"></div>
+  </aside>
+</div>
+
+<div id="search-modal" class="search-modal" role="dialog" aria-modal="true" aria-label="Search the docs" hidden>
+  <div class="search-panel">
+    <input id="search-input" type="search" placeholder="Jump to a section or a document" autocomplete="off"
+           spellcheck="false" aria-controls="search-results" />
+    <div id="search-results" class="search-results"></div>
+  </div>
+</div>
+
+<noscript>
+  <p class="loading">
+    This page renders the Markdown in the
+    <a href="https://github.com/cruciblephp/hallmark">repository</a> —
+    <a href="https://github.com/cruciblephp/hallmark/blob/main/README.md">README.md</a> and
+    <a href="https://github.com/cruciblephp/hallmark/blob/main/docs/README.md">the manual</a> first —
+    which GitHub also renders directly if you would rather read it there.
+  </p>
+</noscript>
+
+<script src="assets/docs.js"></script>
+</body>
+</html>

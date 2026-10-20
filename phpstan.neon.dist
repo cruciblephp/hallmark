@@ -1,0 +1,13 @@
+includes:
+    - vendor/cruciblephp/crucible/phpstan/extension.neon
+
+parameters:
+    level: max
+    phpVersion: 80300
+    paths:
+        - src
+        - integration
+        - examples
+        - tests
+    # A handler's records grow when another object logs through it; a remembered getter result would go stale.
+    rememberPossiblyImpureFunctionValues: false

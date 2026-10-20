@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script>
+document.documentElement.classList.add('js');
+/* FOUC guard fallback: assets/site.js reveals the page once it runs; this keeps a failed script from hiding it. */
+setTimeout(function () { document.body && document.body.classList.add('loaded'); }, 1500);
+/* The stored locale before <body> paints; the same key as assets/locale.js. */
+try {
+  var storedLocale = localStorage.getItem('hallmark-locale');
+  if (storedLocale && storedLocale !== 'en') document.documentElement.lang = storedLocale;
+} catch (e) {}
+</script>
+<meta name="color-scheme" content="light dark" />
+<title>Hallmark — PSR-3 logging for PHP 8.3+, with Monolog's output</title>
+<meta name="author" content="Luciano Federico Pereira" />
+<meta name="description" content="A PSR-3 logger for PHP 8.3+ with Monolog's handlers, formatters, processors and output, plus a Laravel log driver, redaction and an event catalog." />
+<meta name="keywords" content="PHP logger, PSR-3, Monolog alternative, PHP 8.3, Laravel logging, structured logging, JSON logs, log redaction" />
+<link rel="canonical" href="https://cruciblephp.github.io/hallmark/" />
+<meta name="robots" content="index, follow" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Hallmark" />
+<meta property="og:locale" content="en_US" />
+<meta property="og:url" content="https://cruciblephp.github.io/hallmark/" />
+<meta property="og:title" content="Hallmark — PSR-3 logging for PHP 8.3+, with Monolog's output" />
+<meta property="og:description" content="A PSR-3 logger for PHP 8.3+ with Monolog's handlers, formatters, processors and output, plus a Laravel log driver, redaction and an event catalog." />
+<meta property="og:image" content="https://cruciblephp.github.io/hallmark/assets/android-chrome-512x512.png" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="Hallmark — PSR-3 logging for PHP 8.3+, with Monolog's output" />
+<meta name="twitter:description" content="A PSR-3 logger for PHP 8.3+ with Monolog's handlers, formatters, processors and output, plus a Laravel log driver, redaction and an event catalog." />
+<meta name="twitter:image" content="https://cruciblephp.github.io/hallmark/assets/android-chrome-512x512.png" />
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Hallmark",
+  "url": "https://cruciblephp.github.io/hallmark/",
+  "description": "A PSR-3 logger for PHP 8.3+ with Monolog's handlers, formatters, processors and output, plus a Laravel log driver, redaction and an event catalog.",
+  "applicationCategory": "DeveloperApplication",
+  "applicationSubCategory": "PHP library",
+  "operatingSystem": "Any",
+  "softwareRequirements": "PHP 8.3 or later",
+  "license": "https://opensource.org/license/mit",
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "author": { "@type": "Person", "name": "Luciano Federico Pereira", "url": "https://github.com/lucianofedericopereira" },
+  "downloadUrl": "https://packagist.org/packages/hallmark/hallmark",
+  "codeRepository": "https://github.com/cruciblephp/hallmark",
+  "programmingLanguage": "PHP",
+  "sameAs": [
+    "https://github.com/cruciblephp/hallmark",
+    "https://packagist.org/packages/hallmark/hallmark"
+  ]
+}
+</script>
+<meta name="theme-color" content="#faf8f1" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#161615" media="(prefers-color-scheme: dark)" />
+<link rel="icon" href="assets/favicon.ico" sizes="48x48" />
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="assets/favicon-32x32.png" type="image/png" sizes="32x32" />
+<link rel="icon" href="assets/favicon-16x16.png" type="image/png" sizes="16x16" />
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+<link rel="manifest" href="assets/site.webmanifest" />
+<link rel="stylesheet" href="assets/site.css" />
+<link rel="stylesheet" href="assets/palettes.css" />
+<link rel="stylesheet" href="assets/locale.css" />
+<link rel="preconnect" crossorigin="anonymous" href="https://translate.google.com">
+<link rel="preconnect" crossorigin="anonymous" href="https://translate.googleapis.com">
+<link rel="dns-prefetch" href="https://translate.google.com">
+<link rel="dns-prefetch" href="https://translate.googleapis.com">
+</head>
+<body>
+
+<svg style="position:absolute; width:0; height:0; overflow:hidden" aria-hidden="true">
+  <!-- The mark: assets/hallmark.svg's own paths, the viewBox cropped to the artwork. -->
+  <symbol id="icon-hallmark" viewBox="49.78 26.54 300.44 345.65">
+  <g fill="#e80c08">
+      <path fill-rule="evenodd" d="M 200.00,26.54 L 348.02,112.00 L 200.00,197.46 L 51.98,112.00 Z M 200.00,45.60 L 315.00,112.00 L 200.00,178.40 L 85.00,112.00 Z"></path>
+      <path d="M 49.78,115.81 L 197.80,201.27 L 197.80,267.07 L 181.29,257.54 L 181.29,210.80 L 66.29,144.41 L 66.29,277.20 L 181.29,343.59 L 181.29,296.85 L 197.80,306.39 L 197.80,372.19 L 49.78,286.73 Z"></path>
+      <path d="M 350.22,115.81 L 202.20,201.27 L 202.20,267.07 L 218.71,257.54 L 218.71,210.80 L 333.71,144.41 L 333.71,277.20 L 218.71,343.59 L 218.71,296.85 L 202.20,306.39 L 202.20,372.19 L 350.22,286.73 Z"></path>
+      <path d="M 79.61,167.48 L 109.22,184.57 L 109.22,286.60 L 79.61,269.51 Z M 320.39,167.48 L 290.78,184.57 L 290.78,286.60 L 320.39,269.51 Z"></path>
+  </g>
+  <path fill="#f17510" d="M 115.64,226.98 L 200.00,275.68 L 284.36,226.98 L 284.36,251.62 L 200.00,300.32 L 115.64,251.62 Z"></path>
+  </symbol>
+  <symbol id="icon-external" viewBox="0 0 24 24">
+    <path d="M7 17 17 7" />
+    <path d="M8 7h9v9" />
+  </symbol>
+  <!-- Magnifying glass for the search/jump-to trigger — same hand-drawn
+       stroke language (round caps, two simple paths) as icon-external. -->
+  <symbol id="icon-search" viewBox="0 0 24 24">
+    <circle cx="11" cy="11" r="7" />
+    <path d="M20 20 16 16" />
+  </symbol>
+  <!-- Chevron for the back-to-top button — same construction as the
+       carousel's left/right arrows (.carousel-btn svg), just pointing up. -->
+  <symbol id="icon-chevron-up" viewBox="0 0 24 24">
+    <path d="M5 15 12 8 19 15" />
+  </symbol>
+  <symbol id="flag-bg" viewBox="0 0 640 480">
+<path fill="#fff" d="M0 0h640v160H0z"/>
+  <path fill="#00966e" d="M0 160h640v160H0z"/>
+  <path fill="#d62612" d="M0 320h640v160H0z"/>
+  </symbol>
+  <symbol id="flag-cn" viewBox="0 0 640 480">
+<defs>
+    <path id="cn-a" fill="#ff0" d="M-.6.8 0-1 .6.8-1-.3h2z"/>
+  </defs>
+  <path fill="#ee1c25" d="M0 0h640v480H0z"/>
+  <use href="#cn-a" width="30" height="20" transform="matrix(71.9991 0 0 72 120 120)"/>
+  <use href="#cn-a" width="30" height="20" transform="rotate(239.07 133.748 -44.074)scale(23.99992 23.99978)"/>
+  <use href="#cn-a" width="30" height="20" transform="rotate(-98.11 185.558 -77.035)scale(24 23.9997)"/>
+  <use href="#cn-a" width="30" height="20" transform="matrix(6.5991 -23.0749 23.0746 6.59919 288 168)"/>
+  <use href="#cn-a" width="30" height="20" transform="matrix(14.9991 -18.73557 18.73533 14.99929 240 216)"/>
+  </symbol>
+  <symbol id="flag-cz" viewBox="0 0 640 480">
+<path fill="#fff" d="M0 0h640v240H0z"/>
+  <path fill="#d7141a" d="M0 240h640v240H0z"/>
+  <path fill="#11457e" d="M360 240 0 0v480z"/>
+  </symbol>
+  <symbol id="flag-de" viewBox="0 0 640 480">
+<path fill="#fc0" d="M0 320h640v160H0z"/>
+  <path fill="#000001" d="M0 0h640v160H0z"/>
+  <path fill="red" d="M0 160h640v160H0z"/>
+  </symbol>
+  <symbol id="flag-dk" viewBox="0 0 640 480">
+<path fill="#c8102e" d="M0 0h640.1v480H0z"/>
+  <path fill="#fff" d="M205.7 0h68.6v480h-68.6z"/>
+  <path fill="#fff" d="M0 205.7h640.1v68.6H0z"/>
+  </symbol>
+  <symbol id="flag-ee" viewBox="0 0 640 480">
+<path fill="#1791ff" d="M0 0h640v160H0z"/>
+  <path fill="#000001" d="M0 160h640v160H0z"/>
+  <path fill="#fff" d="M0 320h640v160H0z"/>
+  </symbol>
+  <symbol id="flag-es" viewBox="0 0 640 480">
+<path fill="#aa151b" d="M0 0h640v480H0z"/>
+  <path fill="#f1bf00" d="M0 120h640v240H0z"/>
+  </symbol>
+  <symbol id="flag-fi" viewBox="0 0 640 480">
+<path fill="#fff" d="M0 0h640v480H0z"/>
+  <path fill="#002f6c" d="M0 174.5h640v131H0z"/>
+  <path fill="#002f6c" d="M175.5 0h130.9v480h-131z"/>
+  </symbol>
+  <symbol id="flag-fr" viewBox="0 0 640 480">
+<path fill="#fff" d="M0 0h640v480H0z"/>
+  <path fill="#000091" d="M0 0h213.3v480H0z"/>
+  <path fill="#e1000f" d="M426.7 0H640v480H426.7z"/>
+  </symbol>
+  <symbol id="flag-gr" viewBox="0 0 640 480">
+<path fill="#0d5eaf" fill-rule="evenodd" d="M0 0h640v53.3H0z"/>
+  <path fill="#fff" fill-rule="evenodd" d="M0 53.3h640v53.4H0z"/>
+  <path fill="#0d5eaf" fill-rule="evenodd" d="M0 106.7h640V160H0z"/>
+  <path fill="#fff" fill-rule="evenodd" d="M0 160h640v53.3H0z"/>
+  <path fill="#0d5eaf" d="M0 0h266.7v266.7H0z"/>
+  <path fill="#0d5eaf" fill-rule="evenodd" d="M0 213.3h640v53.4H0z"/>
+  <path fill="#fff" fill-rule="evenodd" d="M0 266.7h640V320H0z"/>
+  <path fill="#0d5eaf" fill-rule="evenodd" d="M0 320h640v53.3H0z"/>
+  <path fill="#fff" fill-rule="evenodd" d="M0 373.3h640v53.4H0z"/>
+  <g fill="#fff" fill-rule="evenodd" stroke-width="1.3">
+    <path d="M106.7 0H160v266.7h-53.3z"/>
+    <path d="M0 106.7h266.7V160H0z"/>
+  </g>
+  <path fill="#0d5eaf" d="M0 426.7h640V480H0z"/>
+  </symbol>
+  <symbol id="flag-hr" viewBox="0 0 640 480">
+<path fill="#171796" d="M0 0h640v480H0z"/>
+  <path fill="#fff" d="M0 0h640v320H0z"/>
+  <path fill="red" d="M0 0h640v160H0z"/>
+  </symbol>
+  <symbol id="flag-hu" viewBox="0 0 640 480">
+<g fill-rule="evenodd">
+    <path fill="#fff" d="M640 480H0V0h640z"/>
+    <path fill="#388d00" d="M640 480H0V320h640z"/>
+    <path fill="#d43516" d="M640 160.1H0V.1h640z"/>
+  </g>
+  </symbol>
+  <symbol id="flag-ie" viewBox="0 0 640 480">
+<g fill-rule="evenodd" stroke-width="1pt">
+    <path fill="#fff" d="M0 0h640v480H0z"/>
+    <path fill="#009a49" d="M0 0h213.3v480H0z"/>
+    <path fill="#ff7900" d="M426.7 0H640v480H426.7z"/>
+  </g>
+  </symbol>
+  <symbol id="flag-it" viewBox="0 0 640 480">
+<g fill-rule="evenodd" stroke-width="1pt">
+    <path fill="#fff" d="M0 0h640v480H0z"/>
+    <path fill="#009246" d="M0 0h213.3v480H0z"/>
+    <path fill="#ce2b37" d="M426.7 0H640v480H426.7z"/>
+  </g>
+  </symbol>
+  <symbol id="flag-lt" viewBox="0 0 640 480">
+<g fill-rule="evenodd" stroke-width="1pt" transform="scale(.64143 .96773)">
+    <rect width="1063" height="708.7" fill="#006a44" rx="0" ry="0" transform="scale(.93865 .69686)"/>
+    <rect width="1063" height="236.2" y="475.6" fill="#c1272d" rx="0" ry="0" transform="scale(.93865 .69686)"/>
+    <path fill="#fdb913" d="M0 0h997.8v164.6H0z"/>
+  </g>
+  </symbol>
+  <symbol id="flag-lv" viewBox="0 0 640 480">
+<g fill-rule="evenodd">
+    <path fill="#fff" d="M0 0h640v480H0z"/>
+    <path fill="#981e32" d="M0 0h640v192H0zm0 288h640v192H0z"/>
+  </g>
+  </symbol>
+  <symbol id="flag-mt" viewBox="0 0 640 480">
+<path fill="#fff" d="M0 0h320v480H0z"/>
+  <path fill="#cf142b" d="M320 0h320v480H320z"/>
+  </symbol>
+  <symbol id="flag-nl" viewBox="0 0 640 480">
+<path fill="#ae1c28" d="M0 0h640v160H0z"/>
+  <path fill="#fff" d="M0 160h640v160H0z"/>
+  <path fill="#21468b" d="M0 320h640v160H0z"/>
+  </symbol>
+  <symbol id="flag-pl" viewBox="0 0 640 480">
+<g fill-rule="evenodd">
+    <path fill="#fff" d="M640 480H0V0h640z"/>
+    <path fill="#dc143c" d="M640 480H0V240h640z"/>
+  </g>
+  </symbol>
+  <symbol id="flag-pt" viewBox="0 0 640 480">
+<path fill="red" d="M256 0h384v480H256z"/>
+  <path fill="#060" d="M0 0h256v480H0z"/>
+  </symbol>
+  <symbol id="flag-ro" viewBox="0 0 640 480">
+<g fill-rule="evenodd" stroke-width="1pt">
+    <path fill="#00319c" d="M0 0h213.3v480H0z"/>
+    <path fill="#ffde00" d="M213.3 0h213.4v480H213.3z"/>
+    <path fill="#de2110" d="M426.7 0H640v480H426.7z"/>
+  </g>
+  </symbol>
+  <symbol id="flag-se" viewBox="0 0 640 480">
+<path fill="#005293" d="M0 0h640v480H0z"/>
+  <path fill="#fecb00" d="M176 0v192H0v96h176v192h96V288h368v-96H272V0z"/>
+  </symbol>
+  <symbol id="flag-si" viewBox="0 0 640 480">
+<defs>
+    <clipPath id="si-a">
+      <path fill-opacity=".7" d="M-15 0h682.6v512H-15.1z"/>
+    </clipPath>
+  </defs>
+  <g fill-rule="evenodd" stroke-width="1pt" clip-path="url(#si-a)" transform="translate(14.1)scale(.9375)">
+    <path fill="#fff" d="M-62 0H962v512H-62z"/>
+    <path fill="#d50000" d="M-62 341.3H962V512H-62z"/>
+    <path fill="#0000bf" d="M-62 170.7H962v170.6H-62z"/>
+    <path fill="#d50000" d="M228.4 93c-4 61.6-6.4 95.4-15.7 111-10.2 16.8-20 29.1-59.7 44-39.6-14.9-49.4-27.2-59.6-44-9.4-15.6-11.7-49.4-15.7-111l5.8-2c11.8-3.6 20.6-6.5 27.1-7.8 9.3-2 17.3-4.2 42.3-4.7 25 .4 33 2.8 42.3 4.8q9.7 2.1 27.3 7.7z"/>
+    <path fill="#0000bf" d="M222.6 91c-3.8 61.5-7 89.7-12 103.2-9.6 23.2-24.8 35.9-57.6 48-32.8-12.1-48-24.8-57.7-48-5-13.6-8-41.7-11.8-103.3q17.4-5.6 27.1-7.7c9.3-2 17.3-4.3 42.3-4.7 25 .4 33 2.7 42.3 4.7a284 284 0 0 1 27.4 7.7z"/>
+    <path fill="#ffdf00" d="m153 109.8 1.5 3.7 7 1-4.5 2.7 4.3 2.9-6.3 1-2 3.4-2-3.5-6-.8 4-3-4.2-2.7 6.7-1z"/>
+    <path fill="#fff" d="m208.3 179.6-3.9-3-2.7-4.6-5.4-4.7-2.9-4.7-5.4-4.9-2.6-4.7-3-2.3-1.8-1.9-5 4.3-2.6 4.7-3.3 3-3.7-2.9-2.7-4.8-10.3-18.3-10.3 18.3-2.7 4.8-3.7 2.9-3.3-3-2.7-4.7-4.9-4.3-1.9 1.8-2.9 2.4-2.6 4.7-5.4 4.9-2.9 4.7-5.4 4.7-2.7 4.6-3.9 3a66 66 0 0 0 18.6 36.3 107 107 0 0 0 36.6 20.5 104 104 0 0 0 36.8-20.5c5.8-6 16.6-19.3 18.6-36.3"/>
+    <path fill="#ffdf00" d="m169.4 83.9 1.6 3.7 7 1-4.6 2.7 4.4 2.9-6.3 1-2 3.4-2-3.5-6-.8 4-3-4.2-2.7 6.6-1zm-33 0 1.6 3.7 7 .9-4.5 2.7 4.3 2.9-6.3 1-2 3.4-2-3.4-6-.9 4-3-4.2-2.7 6.7-1z"/>
+    <path fill="#0000bf" d="M199.7 203h-7.4l-7-.5-8.3-4h-9.4l-8.1 4-6.5.6-6.4-.6-8.1-4H129l-8.4 4-6.9.6-7.6-.1-3.6-6.2.1-.2 11.2 1.9 6.9-.5 8.3-4.1h9.4l8.2 4 6.4.6 6.5-.6 8.1-4h9.4l8.4 4 6.9.6 10.8-2 .2.4zm-86.4 9.5 7.4-.5 8.3-4h9.4l8.2 4 6.4.5 6.4-.5 8.2-4h9.4l8.3 4 7.5.5 4.8-6h-.1l-5.2 1.4-6.9-.5-8.3-4h-9.4l-8.2 4-6.4.6-6.5-.6-8.1-4H129l-8.4 4-6.9.6-5-1.3v.2l4.5 5.6z"/>
+  </g>
+  </symbol>
+  <symbol id="flag-sk" viewBox="0 0 640 480">
+<path fill="#ee1c25" d="M0 0h640v480H0z"/>
+  <path fill="#0b4ea2" d="M0 0h640v320H0z"/>
+  <path fill="#fff" d="M0 0h640v160H0z"/>
+  <path fill="#fff" d="M233 370.8c-43-20.7-104.6-61.9-104.6-143.2 0-81.4 4-118.4 4-118.4h201.3s3.9 37 3.9 118.4S276 350 233 370.8"/>
+  <path fill="#ee1c25" d="M233 360c-39.5-19-96-56.8-96-131.4s3.6-108.6 3.6-108.6h184.8s3.5 34 3.5 108.6C329 303.3 272.5 341 233 360"/>
+  <path fill="#fff" d="M241.4 209c10.7.2 31.6.6 50.1-5.6 0 0-.4 6.7-.4 14.4s.5 14.4.5 14.4c-17-5.7-38.1-5.8-50.2-5.7v41.2h-16.8v-41.2c-12-.1-33.1 0-50.1 5.7 0 0 .5-6.7.5-14.4s-.5-14.4-.5-14.4c18.5 6.2 39.4 5.8 50 5.6v-25.9c-9.7 0-23.7.4-39.6 5.7 0 0 .5-6.6.5-14.4 0-7.7-.5-14.4-.5-14.4 15.9 5.3 29.9 5.8 39.6 5.7-.5-16.4-5.3-37-5.3-37s9.9.7 13.8.7 13.8-.7 13.8-.7-4.8 20.6-5.3 37c9.7.1 23.7-.4 39.6-5.7 0 0-.5 6.7-.5 14.4s.5 14.4.5 14.4a119 119 0 0 0-39.7-5.7v26z"/>
+  <path fill="#0b4ea2" d="M233 263.3c-19.9 0-30.5 27.5-30.5 27.5s-6-13-22.2-13c-11 0-19 9.7-24.2 18.8 20 31.7 51.9 51.3 76.9 63.4 25-12 57-31.7 76.9-63.4-5.2-9-13.2-18.8-24.2-18.8-16.2 0-22.2 13-22.2 13S253 263.3 233 263.3"/>
+  </symbol>
+  <symbol id="flag-us" viewBox="0 0 640 480">
+<path fill="#bd3d44" d="M0 0h640v480H0"/>
+  <path stroke="#fff" stroke-width="37" d="M0 55.3h640M0 129h640M0 203h640M0 277h640M0 351h640M0 425h640"/>
+  <path fill="#192f5d" d="M0 0h364.8v258.5H0"/>
+  <marker id="us-a" markerHeight="30" markerWidth="30">
+    <path fill="#fff" d="m14 0 9 27L0 10h28L5 27z"/>
+  </marker>
+  <path fill="none" marker-mid="url(#us-a)" d="m0 0 16 11h61 61 61 61 60L47 37h61 61 60 61L16 63h61 61 61 61 60L47 89h61 61 60 61L16 115h61 61 61 61 60L47 141h61 61 60 61L16 166h61 61 61 61 60L47 192h61 61 60 61L16 218h61 61 61 61 60z"/>
+  </symbol>
+  <symbol id="icon-globe" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="10"/>
+    <path d="M2 12h20"/>
+    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+  </symbol>
+</svg>
+
+<div class="print-only" id="print-meta" aria-hidden="true">
+  <strong id="print-meta-title"></strong>
+  <span id="print-meta-url"></span>
+  <span id="print-meta-date"></span>
+</div>
+
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<div class="shell">
+
+<nav class="nav" aria-label="Primary">
+  <div class="wrap">
+    <a class="brand notranslate" href="#top"><span class="logo"><svg class="logo-mark" aria-hidden="true"><use href="#icon-hallmark"/></svg></span> Hallmark</a>
+    <div class="links" id="nav-links">
+      <a class="i18n link" href="#compare"><span data-i18n-default>Why</span><span data-locale="es" class="notranslate">Por qué</span><span data-locale="it" class="notranslate">Perché</span></a>
+      <a class="i18n link" href="#demo"><span data-i18n-default>Live demo</span><span data-locale="es" class="notranslate">Demo en vivo</span><span data-locale="it" class="notranslate">Demo dal vivo</span></a>
+      <a class="i18n link" href="#example"><span data-i18n-default>Example</span><span data-locale="es" class="notranslate">Ejemplo</span><span data-locale="it" class="notranslate">Esempio</span></a>
+      <a class="i18n link" href="#use-cases"><span data-i18n-default>Use cases</span><span data-locale="es" class="notranslate">Casos de uso</span><span data-locale="it" class="notranslate">Casi d'uso</span></a>
+      <a class="i18n link" href="#how"><span data-i18n-default>How it works</span><span data-locale="es" class="notranslate">Cómo funciona</span><span data-locale="it" class="notranslate">Come funziona</span></a>
+      <a class="i18n link" href="#quick-start"><span data-i18n-default>Quick start</span><span data-locale="es" class="notranslate">Inicio rápido</span><span data-locale="it" class="notranslate">Avvio rapido</span></a>
+      <a class="i18n link" href="#options"><span data-i18n-default>Handlers</span><span data-locale="es" class="notranslate">Handlers</span><span data-locale="it" class="notranslate">Handler</span></a>
+      <a class="i18n link" href="#features"><span data-i18n-default>Features</span><span data-locale="es" class="notranslate">Funciones</span><span data-locale="it" class="notranslate">Funzionalità</span></a>
+      <a class="i18n link" href="#faq"><span data-i18n-default>FAQ</span><span data-locale="es" class="notranslate">Preguntas frecuentes</span><span data-locale="it" class="notranslate">Domande frequenti</span></a>
+      <div class="links-external">
+        <a class="i18n link link--external" href="docs.html"><span data-i18n-default>Docs</span><span data-locale="es" class="notranslate">Documentación</span><span data-locale="it" class="notranslate">Documentazione</span><svg class="link-external-icon" aria-hidden="true"><use href="#icon-external"/></svg></a>
+        <a class="i18n link link--external" href="changelog.html"><span data-i18n-default>Changelog</span><span data-locale="es" class="notranslate">Cambios</span><span data-locale="it" class="notranslate">Modifiche</span><svg class="link-external-icon" aria-hidden="true"><use href="#icon-external"/></svg></a>
+        <a class="link link--external notranslate" href="https://github.com/cruciblephp/hallmark" target="_blank" rel="noopener">GitHub<svg class="link-external-icon" aria-hidden="true"><use href="#icon-external"/></svg></a>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="links-external-toolbar" id="nav-links-external-toolbar">
+      <a class="i18n link link--external" href="changelog.html"><span data-i18n-default>Changelog</span><span data-locale="es" class="notranslate">Cambios</span><span data-locale="it" class="notranslate">Modifiche</span><svg class="link-external-icon" aria-hidden="true"><use href="#icon-external"/></svg></a>
+      <a class="link link--external notranslate" href="https://github.com/cruciblephp/hallmark" target="_blank" rel="noopener">GitHub<svg class="link-external-icon" aria-hidden="true"><use href="#icon-external"/></svg></a>
+    </div>
+    <button type="button" class="search-trigger" id="search-trigger" aria-haspopup="dialog" aria-label="Search or jump to&hellip;">
+      <svg class="search-trigger-icon" aria-hidden="true"><use href="#icon-search"/></svg>
+      <span class="search-trigger-label">Search</span>
+      <kbd class="search-kbd">S</kbd>
+    </button>
+    <div class="locale-switcher notranslate" id="locale-switcher">
+      <button type="button" class="locale-trigger" id="locale-trigger"
+              aria-haspopup="true" aria-expanded="false" aria-controls="locale-menu"
+              aria-label="Choose language">
+        <svg class="locale-trigger-icon" aria-hidden="true"><use href="#icon-globe"/></svg>
+      </button>
+      <ul class="locale-menu" id="locale-menu" role="menu" aria-hidden="true" aria-label="Choose language"></ul>
+      <span class="locale-announce" id="locale-announce" role="status" aria-live="polite"></span>
+    </div>
+    <div id="translate" class="notranslate" hidden></div>
+    <button type="button" class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="nav-links" aria-label="Toggle menu">
+      <span class="nav-toggle-bar"></span>
+      <span class="nav-toggle-bar"></span>
+      <span class="nav-toggle-bar"></span>
+    </button>
+  </div>
+</nav>
+
+<dialog class="search-modal" id="search-modal" aria-label="Search or jump to">
+  <div class="search-input-wrap">
+    <svg aria-hidden="true"><use href="#icon-search"/></svg>
+    <input type="search" id="search-input" placeholder="Search or jump to&hellip;" autocomplete="off" aria-controls="search-results" aria-expanded="false" role="combobox" />
+  </div>
+  <ul class="search-results" id="search-results" role="listbox"></ul>
+</dialog>
+
+<main id="main-content">
+
+<header class="hero" id="top">
+  <div class="wrap">
+    <div class="hero-inner">
+      <div class="hero-text">
+        <div class="logo"><svg class="logo-mark" aria-hidden="true"><use href="#icon-hallmark"/></svg></div>
+        <h1 class="notranslate">Hallmark</h1>
+        <p class="i18n tagline"><span data-i18n-default>A PSR-3 logger for PHP 8.3+, with Monolog's handlers, formatters and processors, and Monolog's output.</span><span data-locale="es" class="notranslate">Un logger PSR-3 para PHP 8.3+, con los handlers, formatters y processors de Monolog, y su misma salida.</span><span data-locale="it" class="notranslate">Un logger PSR-3 per PHP 8.3+, con gli handler, i formatter e i processor di Monolog, e lo stesso output.</span></p>
+        <div class="badges notranslate">
+          <span class="badge">PSR-3</span>
+          <span class="badge">PHP 8.3+</span>
+          <span class="badge">PHPStan max</span>
+          <span class="badge">code: MIT</span>
+        </div>
+        <div class="cta">
+          <a class="i18n btn btn--primary" href="https://github.com/cruciblephp/hallmark"><span data-i18n-default>Star on GitHub</span><span data-locale="es" class="notranslate">Danos una estrella en GitHub</span><span data-locale="it" class="notranslate">Metti una stella su GitHub</span></a>
+          <a class="i18n btn btn--ghost no-print" href="#demo"><span data-i18n-default>Watch it run</span><span data-locale="es" class="notranslate">Ver cómo funciona</span><span data-locale="it" class="notranslate">Guardalo in azione</span></a>
+          <a class="i18n btn btn--ghost" href="#quick-start"><span data-i18n-default>Quick start</span><span data-locale="es" class="notranslate">Inicio rápido</span><span data-locale="it" class="notranslate">Avvio rapido</span></a>
+        </div>
+      </div>
+
+      <div class="hero-visual">
+        <svg class="hero-mark" viewBox="49.78 26.54 300.44 345.65" role="img" aria-label="The Hallmark mark"><use href="#icon-hallmark"/></svg>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section id="compare">
+  <div class="wrap">
+    <div class="i18n eyebrow reveal"><span data-i18n-default>Monolog's shape</span><span data-locale="es" class="notranslate">La forma de Monolog</span><span data-locale="it" class="notranslate">La forma di Monolog</span></div>
+    <h2 class="i18n reveal"><span data-i18n-default>Monolog's design, rewritten for PHP 8.3</span><span data-locale="es" class="notranslate">El diseño de Monolog, reescrito para PHP 8.3</span><span data-locale="it" class="notranslate">Il design di Monolog, riscritto per PHP 8.3</span></h2>
+    <p class="i18n section-lead reveal"><span data-i18n-default>Hallmark has the same parts as Monolog and writes the same output, compared against Monolog itself. The code is new.</span><span data-locale="es" class="notranslate">Hallmark tiene las mismas partes que Monolog y escribe la misma salida, comparada con el propio Monolog. El código es nuevo.</span><span data-locale="it" class="notranslate">Hallmark ha le stesse parti di Monolog e scrive lo stesso output, confrontato con Monolog stesso. Il codice è nuovo.</span></p>
+    <div class="table-scroll reveal">
+      <table class="options-table">
+        <thead>
+          <tr><th class="i18n"><span data-i18n-default>The same</span><span data-locale="es" class="notranslate">Lo mismo</span><span data-locale="it" class="notranslate">Lo stesso</span></th><th class="i18n"><span data-i18n-default>Built with</span><span data-locale="es" class="notranslate">Construido con</span><span data-locale="it" class="notranslate">Costruito con</span></th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="i18n"><span data-i18n-default>The eight severities and their values, 100 to 600</span><span data-locale="es" class="notranslate">Las ocho severidades y sus valores, de 100 a 600</span><span data-locale="it" class="notranslate">Le otto severità e i loro valori, da 100 a 600</span></td><td data-label="Built with" class="i18n"><span data-i18n-default>A backed enum, <code>Level</code></span><span data-locale="es" class="notranslate">Un enum respaldado, <code>Level</code></span><span data-locale="it" class="notranslate">Un enum con valori, <code>Level</code></span></td></tr>
+          <tr><td class="i18n"><span data-i18n-default>A record of channel, level, message, context and extra</span><span data-locale="es" class="notranslate">Un registro de canal, nivel, mensaje, contexto y extra</span><span data-locale="it" class="notranslate">Un record di canale, livello, messaggio, contesto ed extra</span></td><td data-label="Built with" class="i18n"><span data-i18n-default>A <code>readonly</code> value object, enriched by copy</span><span data-locale="es" class="notranslate">Un objeto de valor <code>readonly</code>, enriquecido por copia</span><span data-locale="it" class="notranslate">Un value object <code>readonly</code>, arricchito per copia</span></td></tr>
+          <tr><td class="i18n"><span data-i18n-default>Handler and processor stacks, bubbling</span><span data-locale="es" class="notranslate">Pilas de handlers y processors, con bubbling</span><span data-locale="it" class="notranslate">Stack di handler e processor, con bubbling</span></td><td data-label="Built with" class="i18n"><span data-i18n-default>Processors run once, only when a handler takes the record</span><span data-locale="es" class="notranslate">Los processors corren una vez, solo si un handler toma el registro</span><span data-locale="it" class="notranslate">I processor girano una volta, solo se un handler prende il record</span></td></tr>
+          <tr><td class="i18n"><span data-i18n-default>The JSON a log store reads, empty bags as <code>{}</code></span><span data-locale="es" class="notranslate">El JSON que lee un almacén de logs, bolsas vacías como <code>{}</code></span><span data-locale="it" class="notranslate">Il JSON che legge un archivio di log, contenitori vuoti come <code>{}</code></span></td><td data-label="Built with"><code>JsonFormatter</code>, <code>BatchMode</code></td></tr>
+          <tr><td class="i18n"><span data-i18n-default>Timestamps with microseconds</span><span data-locale="es" class="notranslate">Marcas de tiempo con microsegundos</span><span data-locale="it" class="notranslate">Timestamp con microsecondi</span></td><td data-label="Built with" class="i18n"><span data-i18n-default>The record's own time, in the logger's timezone</span><span data-locale="es" class="notranslate">La hora del propio registro, en la zona horaria del logger</span><span data-locale="it" class="notranslate">L'ora del record stesso, nel fuso orario del logger</span></td></tr>
+          <tr><td class="i18n"><span data-i18n-default>The PSR-3 interface</span><span data-locale="es" class="notranslate">La interfaz PSR-3</span><span data-locale="it" class="notranslate">L'interfaccia PSR-3</span></td><td data-label="Built with" class="i18n"><span data-i18n-default>An unknown level throws PSR-3's own exception</span><span data-locale="es" class="notranslate">Un nivel desconocido lanza la excepción del propio PSR-3</span><span data-locale="it" class="notranslate">Un livello sconosciuto lancia l'eccezione di PSR-3</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="demo">
+  <div class="wrap">
+    <div class="i18n eyebrow reveal"><span data-i18n-default>Live demo</span><span data-locale="es" class="notranslate">Demo en vivo</span><span data-locale="it" class="notranslate">Demo dal vivo</span></div>
+    <h2 class="i18n reveal"><span data-i18n-default>A checkout's log</span><span data-locale="es" class="notranslate">El log de un checkout</span><span data-locale="it" class="notranslate">Il log di un checkout</span></h2>
+    <p class="i18n section-lead reveal"><span data-i18n-default>The output of the script below. The debug line is below the handler's level, the card number is masked, and each line has the request's correlation id.</span><span data-locale="es" class="notranslate">La salida del script de abajo. La línea de debug está por debajo del nivel del handler, el número de tarjeta está enmascarado y cada línea tiene el correlation id de la petición.</span><span data-locale="it" class="notranslate">L'output dello script qui sotto. La riga di debug è sotto il livello dell'handler, il numero di carta è mascherato e ogni riga ha il correlation id della richiesta.</span></p>
+
+    <div class="demo-card reveal" id="demo-card">
+      <svg class="border-draw" aria-hidden="true" focusable="false">
+        <rect class="border-draw-rect" rx="11" ry="11" pathLength="1" />
+      </svg>
+      <div class="demo-chrome">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="demo-filename notranslate">terminal</span>
+        <button type="button" class="i18n replay-btn" id="demo-replay"><span data-i18n-default>↻ Replay</span><span data-locale="es" class="notranslate">↻ Repetir</span><span data-locale="it" class="notranslate">↻ Riproduci</span></button>
+      </div>
+      <div class="demo-body demo-body--screen notranslate">
+        <pre class="demo-pre"><code>$ <span id="demo-marker">php checkout.php</span><span class="demo-cursor" aria-hidden="true"></span></code></pre>
+        <div class="demo-tree demo-screen" id="demo-tree" aria-live="polite">
+<span class="line show">[2026-10-19T22:39:16.229903+00:00] shop.INFO: Order 4711 placed {"order":4711} {"correlation_id":"req-7f3a"}</span>
+<span class="line show">[2026-10-19T22:39:16.231850+00:00] shop.WARNING: Payment 4711 retried {"order":4711,"card_number":"[REDACTED]"} {"correlation_id":"req-7f3a"}</span>
+<span class="line show">[2026-10-19T22:39:16.231958+00:00] shop.ERROR: Gateway declined 4711 {"order":4711,"code":402} {"correlation_id":"req-7f3a"}</span>
+        </div>
+      </div>
+    </div>
+
+    <p class="i18n section-lead reveal" style="margin-top:28px"><span data-i18n-default>The script, as it ran:</span><span data-locale="es" class="notranslate">El script, tal como se ejecutó:</span><span data-locale="it" class="notranslate">Lo script, così come è stato eseguito:</span></p>
+    <div class="demo-card reveal">
+      <div class="demo-chrome">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="demo-filename notranslate">checkout.php</span>
+      </div>
+      <div class="demo-body demo-body--screen notranslate">
+<pre class="demo-pre demo-screen-static">$log = new Logger('shop', [new StreamHandler('php://stdout', Level::Info)], [new CorrelationIdProcessor(id: 'req-7f3a')]);
+$log-&gt;pushProcessor(new PsrLogMessageProcessor());
+$log-&gt;pushProcessor(new RedactionProcessor());
+
+$log-&gt;debug('cart loaded');
+$log-&gt;info('Order {order} placed', ['order' =&gt; 4711]);
+$log-&gt;warning('Payment {order} retried', ['order' =&gt; 4711, 'card_number' =&gt; '4242424242424242']);
+$log-&gt;error('Gateway declined {order}', ['order' =&gt; 4711, 'code' =&gt; 402]);</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="example">
+  <div class="wrap">
+    <div class="i18n eyebrow reveal"><span data-i18n-default>Thirty seconds</span><span data-locale="es" class="notranslate">Treinta segundos</span><span data-locale="it" class="notranslate">Trenta secondi</span></div>
+    <h2 class="i18n reveal"><span data-i18n-default>A logger, a sink, a catalog, a test</span><span data-locale="es" class="notranslate">Un logger, un destino, un catálogo, una prueba</span><span data-locale="it" class="notranslate">Un logger, una destinazione, un catalogo, un test</span></h2>
+    <p class="i18n section-lead reveal"><span data-i18n-default>Every sample is taken from the <a href="docs.html#/docs/README">manual</a>, whose samples the test suite runs as written.</span><span data-locale="es" class="notranslate">Cada ejemplo sale del <a href="docs.html#/docs/README">manual</a>, cuyos ejemplos la suite de pruebas ejecuta tal como están escritos.</span><span data-locale="it" class="notranslate">Ogni esempio viene dal <a href="docs.html#/docs/README">manuale</a>, i cui esempi la suite di test esegue così come sono scritti.</span></p>
+
+    <div class="variant reveal">
+      <div class="head">
+        <span class="name notranslate">Logger</span>
+        <span class="i18n desc"><span data-i18n-default>A channel and its handlers; below a handler's level, a record is never built</span><span data-locale="es" class="notranslate">Un canal y sus handlers; por debajo del nivel de un handler, el registro ni se construye</span><span data-locale="it" class="notranslate">Un canale e i suoi handler; sotto il livello di un handler, il record non viene nemmeno costruito</span></span>
+      </div>
+      <div class="body">
+<pre class="notranslate">$log = new Logger('app', [
+    new StreamHandler('php://stdout', Level::Warning),
+]);
+
+$log-&gt;info('Cache warmed');
+$log-&gt;warning('Low disk space', ['free_mb' =&gt; 128]);</pre>
+      </div>
+    </div>
+
+    <div class="variant reveal">
+      <div class="head">
+        <span class="name notranslate">FingersCrossed</span>
+        <span class="i18n desc"><span data-i18n-default>A request that goes well writes nothing; one that fails writes its whole lead-up</span><span data-locale="es" class="notranslate">Una petición que sale bien no escribe nada; una que falla escribe todo lo que la precedió</span><span data-locale="it" class="notranslate">Una richiesta che va bene non scrive nulla; una che fallisce scrive tutto ciò che l'ha preceduta</span></span>
+      </div>
+      <div class="body">
+<pre class="notranslate">$log = new Logger('app', [new FingersCrossedHandler($stream, activationLevel: Level::Error)]);
+
+$log-&gt;debug('cart loaded');
+$log-&gt;info('charging card');
+$log-&gt;error('card declined');   // now all three are written</pre>
+      </div>
+    </div>
+
+    <div class="variant reveal">
+      <div class="head">
+        <span class="name notranslate">EventCode</span>
+        <span class="i18n desc"><span data-i18n-default>A code declared once, with the level and message derived from it, searchable as <code class="inline">event_code</code></span><span data-locale="es" class="notranslate">Un código declarado una vez, con el nivel y el mensaje derivados de él, buscable como <code class="inline">event_code</code></span><span data-locale="it" class="notranslate">Un codice dichiarato una volta, con livello e messaggio derivati da esso, ricercabile come <code class="inline">event_code</code></span></span>
+      </div>
+      <div class="body">
+<pre class="notranslate">enum PaymentEvent: string implements EventCode
+{
+    case AuthorizationFailed = 'PAY-1001';
+    // code(), level(), message()
+}
+
+$log-&gt;event(PaymentEvent::AuthorizationFailed, ['order' =&gt; 4711]);</pre>
+      </div>
+    </div>
+
+    <div class="variant reveal">
+      <div class="head">
+        <span class="name notranslate">Laravel</span>
+        <span class="i18n desc"><span data-i18n-default>A channel with Laravel's own keys, and Laravel's Context on every record</span><span data-locale="es" class="notranslate">Un canal con las propias claves de Laravel, y el Context de Laravel en cada registro</span><span data-locale="it" class="notranslate">Un canale con le chiavi di Laravel, e il Context di Laravel su ogni record</span></span>
+      </div>
+      <div class="body">
+<pre class="notranslate">'hallmark' =&gt; [
+    'driver' =&gt; 'hallmark',
+    'path'   =&gt; storage_path('logs/laravel.log'),
+    'level'  =&gt; env('LOG_LEVEL', 'debug'),
+    'days'   =&gt; 14,
+],</pre>
+      </div>
+    </div>
+
+    <div class="variant reveal">
+      <div class="head">
+        <span class="name notranslate">Test</span>
+        <span class="i18n desc"><span data-i18n-default>Assert on what was logged; a failure lists what was logged instead</span><span data-locale="es" class="notranslate">Afirma sobre lo que se registró; un fallo lista lo que se registró en su lugar</span><span data-locale="it" class="notranslate">Asserisci su ciò che è stato registrato; un fallimento elenca invece ciò che è stato registrato</span></span>
+      </div>
+      <div class="body">
+<pre class="notranslate">$handler = new TestHandler();
+(new Logger('shop', [$handler]))-&gt;warning('payment retry scheduled');
+
+$this-&gt;assertLoggedThatContains($handler, Level::Warning, 'retry');</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="use-cases">
+  <div class="wrap wrap-wide">
+    <div class="i18n eyebrow reveal"><span data-i18n-default>Where it fits</span><span data-locale="es" class="notranslate">Dónde encaja</span><span data-locale="it" class="notranslate">Dove si adatta</span></div>
+    <h2 class="i18n reveal"><span data-i18n-default>Use cases</span><span data-locale="es" class="notranslate">Casos de uso</span><span data-locale="it" class="notranslate">Casi d'uso</span></h2>
+    <p class="i18n section-lead reveal"><span data-i18n-default>Drag or scroll sideways.</span><span data-locale="es" class="notranslate">Arrastra o desplázate lateralmente.</span><span data-locale="it" class="notranslate">Trascina o scorri lateralmente.</span></p>
+
+    <div class="carousel-viewport reveal">
+      <div class="carousel" id="use-case-carousel" role="region" aria-label="Use cases, scrollable" tabindex="0">
+        <div class="carousel-card">
+          <div class="i18n cc-eyebrow"><span data-i18n-default>Structured log stores</span><span data-locale="es" class="notranslate">Almacenes de logs estructurados</span><span data-locale="it" class="notranslate">Archivi di log strutturati</span></div>
+          <p class="i18n"><span data-i18n-default><code class="inline">JsonFormatter</code> writes one object per record, with an empty context as <code class="inline">{}</code>, so a store that types a field by its first value always reads an object.</span><span data-locale="es" class="notranslate"><code class="inline">JsonFormatter</code> escribe un objeto por registro, con el contexto vacío como <code class="inline">{}</code>, así que un almacén que tipa un campo por su primer valor siempre lee un objeto.</span><span data-locale="it" class="notranslate"><code class="inline">JsonFormatter</code> scrive un oggetto per record, con il contesto vuoto come <code class="inline">{}</code>, così un archivio che tipizza un campo dal primo valore legge sempre un oggetto.</span></p>
+        </div>
+        <div class="carousel-card">
+          <div class="i18n cc-eyebrow"><span data-i18n-default>Incidents</span><span data-locale="es" class="notranslate">Incidentes</span><span data-locale="it" class="notranslate">Incidenti</span></div>
+          <p class="i18n"><span data-i18n-default><code class="inline">FingersCrossedHandler</code> keeps the debug lead-up of a request and writes it only when something goes wrong: quiet logs, full context.</span><span data-locale="es" class="notranslate"><code class="inline">FingersCrossedHandler</code> guarda el debug previo de una petición y lo escribe solo cuando algo sale mal: logs silenciosos, contexto completo.</span><span data-locale="it" class="notranslate"><code class="inline">FingersCrossedHandler</code> conserva il debug che precede una richiesta e lo scrive solo quando qualcosa va storto: log silenziosi, contesto completo.</span></p>
+        </div>
+        <div class="carousel-card">
+          <div class="i18n cc-eyebrow"><span data-i18n-default>Payments and logins</span><span data-locale="es" class="notranslate">Pagos e inicios de sesión</span><span data-locale="it" class="notranslate">Pagamenti e accessi</span></div>
+          <p class="i18n"><span data-i18n-default><code class="inline">RedactionProcessor</code> masks passwords, tokens and card numbers by key, at any depth of the context, before a formatter sees them.</span><span data-locale="es" class="notranslate"><code class="inline">RedactionProcessor</code> enmascara contraseñas, tokens y números de tarjeta por clave, a cualquier profundidad del contexto, antes de que un formatter los vea.</span><span data-locale="it" class="notranslate"><code class="inline">RedactionProcessor</code> maschera password, token e numeri di carta per chiave, a qualsiasi profondità del contesto, prima che un formatter li veda.</span></p>
+        </div>
+        <div class="carousel-card">
+          <div class="i18n cc-eyebrow"><span data-i18n-default>Workers</span><span data-locale="es" class="notranslate">Workers</span><span data-locale="it" class="notranslate">Worker</span></div>
+          <p class="i18n"><span data-i18n-default>On Octane, RoadRunner or a queue worker, <code class="inline">reset()</code> at each boundary flushes buffers and draws new ids, so nothing carries over between requests.</span><span data-locale="es" class="notranslate">En Octane, RoadRunner o un worker de colas, <code class="inline">reset()</code> en cada límite vacía los buffers y genera ids nuevos, así nada pasa de una petición a otra.</span><span data-locale="it" class="notranslate">Su Octane, RoadRunner o un worker di code, <code class="inline">reset()</code> a ogni confine svuota i buffer e genera nuovi id, così nulla passa da una richiesta all'altra.</span></p>
+        </div>
+        <div class="carousel-card">
+          <div class="i18n cc-eyebrow"><span data-i18n-default>Laravel and Laravents</span><span data-locale="es" class="notranslate">Laravel y Laravents</span><span data-locale="it" class="notranslate">Laravel e Laravents</span></div>
+          <p class="i18n"><span data-i18n-default>The <code class="inline">hallmark</code> channel carries Laravel's Context, so the correlation and causation ids Laravents puts there are on every line of a message's handling.</span><span data-locale="es" class="notranslate">El canal <code class="inline">hallmark</code> lleva el Context de Laravel, así que los ids de correlación y causalidad que Laravents pone ahí están en cada línea del manejo de un mensaje.</span><span data-locale="it" class="notranslate">Il canale <code class="inline">hallmark</code> porta il Context di Laravel, così gli id di correlazione e causalità che Laravents mette lì sono su ogni riga della gestione di un messaggio.</span></p>
+        </div>
+        <div class="carousel-card">
+          <div class="i18n cc-eyebrow"><span data-i18n-default>CLI tools and containers</span><span data-locale="es" class="notranslate">Herramientas CLI y contenedores</span><span data-locale="it" class="notranslate">Strumenti CLI e container</span></div>
+          <p class="i18n"><span data-i18n-default><code class="inline">StderrHandler</code> keeps the logs on the error stream and standard output for the program, as a container platform expects.</span><span data-locale="es" class="notranslate"><code class="inline">StderrHandler</code> deja los logs en la salida de error y la salida estándar para el programa, como espera una plataforma de contenedores.</span><span data-locale="it" class="notranslate"><code class="inline">StderrHandler</code> tiene i log sullo stream di errore e l'output standard per il programma, come si aspetta una piattaforma di container.</span></p>
+        </div>
+      </div>
+      <div class="carousel-nav">
+        <button type="button" class="carousel-btn" id="carousel-prev" aria-label="Scroll left">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12 15 19" pathLength="1"/></svg>
+        </button>
+        <button type="button" class="carousel-btn" id="carousel-next" aria-label="Scroll right">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5 16 12 9 19" pathLength="1"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <div class="i18n eyebrow reveal"><span data-i18n-default>From install to a first line</span><span data-locale="es" class="notranslate">De la instalación a la primera línea</span><span data-locale="it" class="notranslate">Dall'installazione alla prima riga</span></div>
+    <h2 class="i18n reveal"><span data-i18n-default>How it works</span><span data-locale="es" class="notranslate">Cómo funciona</span><span data-locale="it" class="notranslate">Come funziona</span></h2>
+    <p class="i18n section-lead reveal"><span data-i18n-default>A record goes from the logger, through its processors, to each handler that takes it.</span><span data-locale="es" class="notranslate">Un registro va del logger, a través de sus processors, a cada handler que lo toma.</span><span data-locale="it" class="notranslate">Un record va dal logger, attraverso i suoi processor, a ogni handler che lo prende.</span></p>
+    <div class="steps">
+      <div class="step reveal" style="transition-delay:0s">
+        <div class="step-number">1</div>
+        <h3 class="i18n"><span data-i18n-default>Install</span><span data-locale="es" class="notranslate">Instalar</span><span data-locale="it" class="notranslate">Installa</span></h3>
+        <p class="i18n"><span data-i18n-default><code class="inline">composer require hallmark/hallmark</code>: <code class="inline">psr/log</code> is the only package it brings.</span><span data-locale="es" class="notranslate"><code class="inline">composer require hallmark/hallmark</code>: <code class="inline">psr/log</code> es el único paquete que trae.</span><span data-locale="it" class="notranslate"><code class="inline">composer require hallmark/hallmark</code>: <code class="inline">psr/log</code> è l'unico pacchetto che porta.</span></p>
+      </div>
+      <div class="step reveal" style="transition-delay:.07s">
+        <div class="step-number">2</div>
+        <h3 class="i18n"><span data-i18n-default>Pick the sinks</span><span data-locale="es" class="notranslate">Elegir los destinos</span><span data-locale="it" class="notranslate">Scegli le destinazioni</span></h3>
+        <p class="i18n"><span data-i18n-default>A file, a daily file, stderr, syslog, or a decorator around one of them; each with its own level and formatter.</span><span data-locale="es" class="notranslate">Un archivo, un archivo diario, stderr, syslog o un decorador alrededor de uno; cada uno con su nivel y su formatter.</span><span data-locale="it" class="notranslate">Un file, un file giornaliero, stderr, syslog o un decoratore attorno a uno di essi; ognuno con il suo livello e il suo formatter.</span></p>
+      </div>
+      <div class="step reveal" style="transition-delay:.14s">
+        <div class="step-number">3</div>
+        <h3 class="i18n"><span data-i18n-default>Stamp the records</span><span data-locale="es" class="notranslate">Sellar los registros</span><span data-locale="it" class="notranslate">Marchia i record</span></h3>
+        <p class="i18n"><span data-i18n-default>Processors add the correlation id, the call site, the memory, and mask what must not be written.</span><span data-locale="es" class="notranslate">Los processors agregan el correlation id, el punto de llamada, la memoria, y enmascaran lo que no debe escribirse.</span><span data-locale="it" class="notranslate">I processor aggiungono il correlation id, il punto di chiamata, la memoria, e mascherano ciò che non va scritto.</span></p>
+      </div>
+      <div class="step reveal" style="transition-delay:.21s">
+        <div class="step-number">4</div>
+        <h3 class="i18n"><span data-i18n-default>Log</span><span data-locale="es" class="notranslate">Registrar</span><span data-locale="it" class="notranslate">Registra</span></h3>
+        <p class="i18n"><span data-i18n-default>The eight PSR-3 methods, <code class="inline">log()</code>, or <code class="inline">event()</code> for a catalogued event.</span><span data-locale="es" class="notranslate">Los ocho métodos de PSR-3, <code class="inline">log()</code>, o <code class="inline">event()</code> para un evento catalogado.</span><span data-locale="it" class="notranslate">Gli otto metodi di PSR-3, <code class="inline">log()</code>, oppure <code class="inline">event()</code> per un evento catalogato.</span></p>
+      </div>
+    </div>
+    <div class="i18n callout reveal"><span data-i18n-default><strong>Logging must not break the request?</strong> <code class="inline">setExceptionHandler()</code> receives what a handler throws, a full disk or an unwritable path, instead of the code that logged.</span><span data-locale="es" class="notranslate"><strong>¿El logging no debe romper la petición?</strong> <code class="inline">setExceptionHandler()</code> recibe lo que lanza un handler, un disco lleno o una ruta sin permisos, en lugar del código que registró.</span><span data-locale="it" class="notranslate"><strong>Il logging non deve rompere la richiesta?</strong> <code class="inline">setExceptionHandler()</code> riceve ciò che lancia un handler, un disco pieno o un percorso non scrivibile, invece del codice che ha registrato.</span></div>
+  </div>
+</section>
+
+<section id="quick-start">
+  <div class="wrap">
+    <div class="eyebrow reveal">PHP 8.3+</div>
+    <h2 class="i18n reveal"><span data-i18n-default>Quick start</span><span data-locale="es" class="notranslate">Inicio rápido</span><span data-locale="it" class="notranslate">Avvio rapido</span></h2>
+    <p class="i18n section-lead reveal"><span data-i18n-default><strong>PHP 8.3 or newer.</strong> Require the package:</span><span data-locale="es" class="notranslate"><strong>PHP 8.3 o más reciente.</strong> Requiere el paquete:</span><span data-locale="it" class="notranslate"><strong>PHP 8.3 o più recente.</strong> Richiedi il pacchetto:</span></p>
+<pre class="notranslate">composer require hallmark/hallmark</pre>
+    <p class="i18n section-lead reveal" style="margin-top:24px"><span data-i18n-default>Build a logger and write a line:</span><span data-locale="es" class="notranslate">Crea un logger y escribe una línea:</span><span data-locale="it" class="notranslate">Crea un logger e scrivi una riga:</span></p>
+<pre class="notranslate">use Hallmark\Handler\StreamHandler;
+use Hallmark\Level;
+use Hallmark\Logger;
+
+$log = new Logger('app', [
+    new StreamHandler(__DIR__ . '/var/logs/app.log', Level::Warning),
+]);
+
+$log-&gt;warning('Low disk space', ['free_mb' =&gt; 128]);</pre>
+    <p class="i18n section-lead reveal" style="margin-top:24px"><span data-i18n-default>In Laravel, add a channel with <code class="inline">'driver' =&gt; 'hallmark'</code>. Then read the <a href="docs.html#/docs/README">manual</a>, from installation to the reference.</span><span data-locale="es" class="notranslate">En Laravel, agrega un canal con <code class="inline">'driver' =&gt; 'hallmark'</code>. Después lee el <a href="docs.html#/docs/README">manual</a>, de la instalación a la referencia.</span><span data-locale="it" class="notranslate">In Laravel, aggiungi un canale con <code class="inline">'driver' =&gt; 'hallmark'</code>. Poi leggi il <a href="docs.html#/docs/README">manuale</a>, dall'installazione al riferimento.</span></p>
+  </div>
+</section>
+
+<section id="options">
+  <div class="wrap">
+    <div class="eyebrow reveal">Handlers</div>
+    <h2 class="i18n reveal"><span data-i18n-default>Where a record goes</span><span data-locale="es" class="notranslate">A dónde va un registro</span><span data-locale="it" class="notranslate">Dove va un record</span></h2>
+    <p class="i18n section-lead reveal"><span data-i18n-default>Nine handlers, each with its own level and formatter. Their options are on the <a href="docs.html#/docs/handlers">handlers page</a>:</span><span data-locale="es" class="notranslate">Nueve handlers, cada uno con su nivel y su formatter. Sus opciones están en la <a href="docs.html#/docs/handlers">página de handlers</a>:</span><span data-locale="it" class="notranslate">Nove handler, ognuno con il suo livello e il suo formatter. Le loro opzioni sono nella <a href="docs.html#/docs/handlers">pagina degli handler</a>:</span></p>
+    <div class="table-scroll reveal">
+      <table class="options-table">
+        <thead>
+          <tr><th>Handler</th><th class="i18n"><span data-i18n-default>Writes to</span><span data-locale="es" class="notranslate">Escribe en</span><span data-locale="it" class="notranslate">Scrive su</span></th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>StreamHandler</code></td><td data-label="Writes to" class="i18n"><span data-i18n-default>A file path or any stream, with optional locking.</span><span data-locale="es" class="notranslate">Una ruta de archivo o cualquier stream, con bloqueo opcional.</span><span data-locale="it" class="notranslate">Un percorso di file o qualsiasi stream, con lock opzionale.</span></td></tr>
+          <tr><td><code>RotatingFileHandler</code></td><td data-label="Writes to" class="i18n"><span data-i18n-default>One file per day of each record's own date, with a retention window.</span><span data-locale="es" class="notranslate">Un archivo por día de la fecha de cada registro, con una ventana de retención.</span><span data-locale="it" class="notranslate">Un file per giorno della data di ogni record, con una finestra di conservazione.</span></td></tr>
+          <tr><td><code>StderrHandler</code></td><td data-label="Writes to" class="i18n"><span data-i18n-default><code>php://stderr</code>, for CLI tools and containers.</span><span data-locale="es" class="notranslate"><code>php://stderr</code>, para herramientas CLI y contenedores.</span><span data-locale="it" class="notranslate"><code>php://stderr</code>, per strumenti CLI e container.</span></td></tr>
+          <tr><td><code>SyslogHandler</code></td><td data-label="Writes to" class="i18n"><span data-i18n-default>The system logger, each level at its syslog priority.</span><span data-locale="es" class="notranslate">El logger del sistema, cada nivel con su prioridad de syslog.</span><span data-locale="it" class="notranslate">Il logger di sistema, ogni livello con la sua priorità syslog.</span></td></tr>
+          <tr><td><code>NullHandler</code></td><td data-label="Writes to" class="i18n"><span data-i18n-default>Nowhere: it silences the levels it takes for the handlers behind it.</span><span data-locale="es" class="notranslate">A ningún lado: silencia los niveles que toma para los handlers detrás de él.</span><span data-locale="it" class="notranslate">Da nessuna parte: zittisce i livelli che prende per gli handler dietro di lui.</span></td></tr>
+          <tr><td><code>TestHandler</code></td><td data-label="Writes to" class="i18n"><span data-i18n-default>Memory, for assertions.</span><span data-locale="es" class="notranslate">Memoria, para aserciones.</span><span data-locale="it" class="notranslate">Memoria, per le asserzioni.</span></td></tr>
+          <tr><td><code>BufferHandler</code></td><td data-label="Writes to" class="i18n"><span data-i18n-default>Another handler, in one batch.</span><span data-locale="es" class="notranslate">Otro handler, en un solo lote.</span><span data-locale="it" class="notranslate">Un altro handler, in un solo lotto.</span></td></tr>
+          <tr><td><code>FingersCrossedHandler</code></td><td data-label="Writes to" class="i18n"><span data-i18n-default>Another handler, only once something goes wrong.</span><span data-locale="es" class="notranslate">Otro handler, solo cuando algo sale mal.</span><span data-locale="it" class="notranslate">Un altro handler, solo quando qualcosa va storto.</span></td></tr>
+          <tr><td><code>SamplingHandler</code></td><td data-label="Writes to" class="i18n"><span data-i18n-default>Another handler, one record in N.</span><span data-locale="es" class="notranslate">Otro handler, un registro de cada N.</span><span data-locale="it" class="notranslate">Un altro handler, un record ogni N.</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <div class="i18n eyebrow reveal"><span data-i18n-default>The idea</span><span data-locale="es" class="notranslate">La idea</span><span data-locale="it" class="notranslate">L'idea</span></div>
+    <h2 class="i18n reveal"><span data-i18n-default>Why Hallmark</span><span data-locale="es" class="notranslate">Por qué Hallmark</span><span data-locale="it" class="notranslate">Perché Hallmark</span></h2>
+    <div class="features" style="margin-top:24px">
+      <div class="feature reveal">
+        <svg class="ic-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 21 7.5 21 16.5 12 21 3 16.5 3 7.5Z" pathLength="1"/><path d="M3 7.5 12 12 21 7.5" pathLength="1"/><path d="M12 12 12 21" pathLength="1"/></svg>
+        <div><h3 class="i18n"><span data-i18n-default>Monolog's output, measured</span><span data-locale="es" class="notranslate">La salida de Monolog, medida</span><span data-locale="it" class="notranslate">L'output di Monolog, misurato</span></h3><p class="i18n"><span data-i18n-default>Level values, JSON, empty bags and dates match Monolog's, checked against Monolog itself, so dashboards and log shippers keep working.</span><span data-locale="es" class="notranslate">Los valores de nivel, el JSON, las bolsas vacías y las fechas coinciden con los de Monolog, comprobados contra el propio Monolog, así que los paneles y los enviadores de logs siguen funcionando.</span><span data-locale="it" class="notranslate">I valori dei livelli, il JSON, i contenitori vuoti e le date coincidono con quelli di Monolog, verificati contro Monolog stesso, così dashboard e log shipper continuano a funzionare.</span></p></div>
+      </div>
+      <div class="feature reveal">
+        <svg class="ic-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 6 19 11C19 16 15.5 19.5 12 21 8.5 19.5 5 16 5 11L5 6Z" pathLength="1"/><path d="M9 12 11 14 15 9.5" pathLength="1"/></svg>
+        <div><h3 class="i18n"><span data-i18n-default>Typed end to end</span><span data-locale="es" class="notranslate">Tipado de punta a punta</span><span data-locale="it" class="notranslate">Tipizzato da capo a fondo</span></h3><p class="i18n"><span data-i18n-default>PHPStan at level max over the source, the integrations and the tests. Levels are an enum and records are <code class="inline">readonly</code>, so one handler cannot change what the next sees.</span><span data-locale="es" class="notranslate">PHPStan en el nivel máximo sobre el código, las integraciones y las pruebas. Los niveles son un enum y los registros son <code class="inline">readonly</code>, así que un handler no puede cambiar lo que ve el siguiente.</span><span data-locale="it" class="notranslate">PHPStan al livello massimo su sorgenti, integrazioni e test. I livelli sono un enum e i record sono <code class="inline">readonly</code>, quindi un handler non può cambiare ciò che vede il successivo.</span></p></div>
+      </div>
+      <div class="feature reveal">
+        <svg class="ic-svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="12" r="6.5" pathLength="1"/><circle cx="15" cy="12" r="6.5" pathLength="1"/></svg>
+        <div><h3 class="i18n"><span data-i18n-default>Nothing else to install</span><span data-locale="es" class="notranslate">Nada más que instalar</span><span data-locale="it" class="notranslate">Nient'altro da installare</span></h3><p class="i18n"><span data-i18n-default><code class="inline">psr/log</code> is the only package Hallmark needs. Laravel and PHPUnit are needed only by the integrations that use them.</span><span data-locale="es" class="notranslate"><code class="inline">psr/log</code> es el único paquete que Hallmark necesita. Laravel y PHPUnit solo los necesitan las integraciones que los usan.</span><span data-locale="it" class="notranslate"><code class="inline">psr/log</code> è l'unico pacchetto di cui Hallmark ha bisogno. Laravel e PHPUnit servono solo alle integrazioni che li usano.</span></p></div>
+      </div>
+      <div class="feature reveal">
+        <svg class="ic-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11A8 8 0 1 0 18.5 16" pathLength="1"/><path d="M20 5v6h-6" pathLength="1"/></svg>
+        <div><h3 class="i18n"><span data-i18n-default>Built for workers</span><span data-locale="es" class="notranslate">Pensado para workers</span><span data-locale="it" class="notranslate">Pensato per i worker</span></h3><p class="i18n"><span data-i18n-default><code class="inline">reset()</code> returns every buffer, trigger, count and id to a clean state between requests on a long-lived process.</span><span data-locale="es" class="notranslate"><code class="inline">reset()</code> devuelve cada buffer, disparador, contador e id a un estado limpio entre peticiones en un proceso de larga vida.</span><span data-locale="it" class="notranslate"><code class="inline">reset()</code> riporta ogni buffer, trigger, contatore e id a uno stato pulito tra le richieste in un processo di lunga durata.</span></p></div>
+      </div>
+      <div class="feature reveal">
+        <svg class="ic-svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2" pathLength="1"/><path d="M11 18h2" pathLength="1"/></svg>
+        <div><h3 class="i18n"><span data-i18n-default>Secrets stay out</span><span data-locale="es" class="notranslate">Los secretos quedan afuera</span><span data-locale="it" class="notranslate">I segreti restano fuori</span></h3><p class="i18n"><span data-i18n-default><code class="inline">RedactionProcessor</code> masks auth and payment keys at any depth, and runs before interpolation when pushed last.</span><span data-locale="es" class="notranslate"><code class="inline">RedactionProcessor</code> enmascara claves de autenticación y de pago a cualquier profundidad, y corre antes de la interpolación si se agrega último.</span><span data-locale="it" class="notranslate"><code class="inline">RedactionProcessor</code> maschera le chiavi di autenticazione e di pagamento a qualsiasi profondità, e gira prima dell'interpolazione se aggiunto per ultimo.</span></p></div>
+      </div>
+      <div class="feature reveal">
+        <svg class="ic-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8" pathLength="1"/><circle cx="12" cy="12" r="4" pathLength="1"/></svg>
+        <div><h3 class="i18n"><span data-i18n-default>The docs are tested</span><span data-locale="es" class="notranslate">La documentación está probada</span><span data-locale="it" class="notranslate">La documentazione è testata</span></h3><p class="i18n"><span data-i18n-default>Every PHP sample in the README and the manual runs in the test suite, and must print the output it shows.</span><span data-locale="es" class="notranslate">Cada ejemplo PHP del README y del manual se ejecuta en la suite de pruebas, y debe imprimir la salida que muestra.</span><span data-locale="it" class="notranslate">Ogni esempio PHP del README e del manuale gira nella suite di test, e deve stampare l'output che mostra.</span></p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <div class="i18n eyebrow reveal"><span data-i18n-default>Before you ask</span><span data-locale="es" class="notranslate">Antes de preguntar</span><span data-locale="it" class="notranslate">Prima di chiedere</span></div>
+    <h2 class="i18n reveal"><span data-i18n-default>FAQ</span><span data-locale="es" class="notranslate">Preguntas frecuentes</span><span data-locale="it" class="notranslate">Domande frequenti</span></h2>
+    <p class="i18n section-lead reveal"><span data-i18n-default>The short answers — the <a href="docs.html#/docs/README">manual</a> has the long ones.</span><span data-locale="es" class="notranslate">Las respuestas breves — el <a href="docs.html#/docs/README">manual</a> tiene las largas.</span><span data-locale="it" class="notranslate">Le risposte brevi — il <a href="docs.html#/docs/README">manuale</a> ha quelle lunghe.</span></p>
+
+    <div class="accordion reveal">
+      <div class="accordion-item">
+        <button type="button" class="accordion-trigger" aria-expanded="true" aria-controls="faq-1">
+          <span class="i18n"><span data-i18n-default>Is it a fork of Monolog?</span><span data-locale="es" class="notranslate">¿Es un fork de Monolog?</span><span data-locale="it" class="notranslate">È un fork di Monolog?</span></span>
+          <span class="accordion-icon" aria-hidden="true">+</span>
+        </button>
+        <div class="accordion-panel-wrap" id="faq-1">
+          <div class="accordion-panel-inner">
+            <p class="i18n accordion-panel"><span data-i18n-default>No. Hallmark is an independent implementation inspired by Monolog's design. It shares no code with it, has its own <code class="inline">Hallmark</code> namespace, and matches Monolog's output where tools depend on it.</span><span data-locale="es" class="notranslate">No. Hallmark es una implementación independiente inspirada en el diseño de Monolog. No comparte código con él, tiene su propio namespace <code class="inline">Hallmark</code> y coincide con la salida de Monolog donde las herramientas dependen de ella.</span><span data-locale="it" class="notranslate">No. Hallmark è un'implementazione indipendente ispirata al design di Monolog. Non condivide codice con esso, ha il suo namespace <code class="inline">Hallmark</code> e coincide con l'output di Monolog dove gli strumenti ne dipendono.</span></p>
+          </div>
+        </div>
+      </div>
+      <div class="accordion-item">
+        <button type="button" class="accordion-trigger" aria-expanded="false" aria-controls="faq-2">
+          <span class="i18n"><span data-i18n-default>Can it replace Monolog in my application?</span><span data-locale="es" class="notranslate">¿Puede reemplazar a Monolog en mi aplicación?</span><span data-locale="it" class="notranslate">Può sostituire Monolog nella mia applicazione?</span></span>
+          <span class="accordion-icon" aria-hidden="true">+</span>
+        </button>
+        <div class="accordion-panel-wrap" id="faq-2">
+          <div class="accordion-panel-inner">
+            <p class="i18n accordion-panel"><span data-i18n-default>Wherever code asks for a PSR-3 logger, yes. Code that uses Monolog's own classes, such as a Monolog handler from another package, needs Monolog.</span><span data-locale="es" class="notranslate">Donde el código pida un logger PSR-3, sí. El código que usa las clases propias de Monolog, como un handler de Monolog de otro paquete, necesita Monolog.</span><span data-locale="it" class="notranslate">Ovunque il codice chieda un logger PSR-3, sì. Il codice che usa le classi di Monolog, come un handler Monolog di un altro pacchetto, ha bisogno di Monolog.</span></p>
+          </div>
+        </div>
+      </div>
+      <div class="accordion-item">
+        <button type="button" class="accordion-trigger" aria-expanded="false" aria-controls="faq-3">
+          <span class="i18n"><span data-i18n-default>Can a hallmark channel join a Laravel stack?</span><span data-locale="es" class="notranslate">¿Un canal hallmark puede unirse a un stack de Laravel?</span><span data-locale="it" class="notranslate">Un canale hallmark può entrare in uno stack di Laravel?</span></span>
+          <span class="accordion-icon" aria-hidden="true">+</span>
+        </button>
+        <div class="accordion-panel-wrap" id="faq-3">
+          <div class="accordion-panel-inner">
+            <p class="i18n accordion-panel"><span data-i18n-default>No. Laravel builds a stack from its channels' Monolog handlers, so it can hold only Monolog channels. Write to the <code class="inline">hallmark</code> channel by name, or make it the default.</span><span data-locale="es" class="notranslate">No. Laravel arma un stack con los handlers de Monolog de sus canales, así que solo admite canales de Monolog. Escribe al canal <code class="inline">hallmark</code> por nombre, o hazlo el predeterminado.</span><span data-locale="it" class="notranslate">No. Laravel costruisce uno stack dagli handler Monolog dei suoi canali, quindi può contenere solo canali Monolog. Scrivi sul canale <code class="inline">hallmark</code> per nome, oppure rendilo quello predefinito.</span></p>
+          </div>
+        </div>
+      </div>
+      <div class="accordion-item">
+        <button type="button" class="accordion-trigger" aria-expanded="false" aria-controls="faq-4">
+          <span class="i18n"><span data-i18n-default>Which PHP versions does it run on?</span><span data-locale="es" class="notranslate">¿En qué versiones de PHP funciona?</span><span data-locale="it" class="notranslate">Su quali versioni di PHP funziona?</span></span>
+          <span class="accordion-icon" aria-hidden="true">+</span>
+        </button>
+        <div class="accordion-panel-wrap" id="faq-4">
+          <div class="accordion-panel-inner">
+            <p class="i18n accordion-panel"><span data-i18n-default>PHP 8.3 and newer. CI runs the whole check on 8.3, 8.4 and 8.5.</span><span data-locale="es" class="notranslate">PHP 8.3 y más recientes. La CI ejecuta todas las verificaciones en 8.3, 8.4 y 8.5.</span><span data-locale="it" class="notranslate">PHP 8.3 e successivi. La CI esegue tutti i controlli su 8.3, 8.4 e 8.5.</span></p>
+          </div>
+        </div>
+      </div>
+      <div class="accordion-item">
+        <button type="button" class="accordion-trigger" aria-expanded="false" aria-controls="faq-5">
+          <span class="i18n"><span data-i18n-default>What happens when a handler fails?</span><span data-locale="es" class="notranslate">¿Qué pasa cuando falla un handler?</span><span data-locale="it" class="notranslate">Cosa succede quando un handler fallisce?</span></span>
+          <span class="accordion-icon" aria-hidden="true">+</span>
+        </button>
+        <div class="accordion-panel-wrap" id="faq-5">
+          <div class="accordion-panel-inner">
+            <p class="i18n accordion-panel"><span data-i18n-default>By default the exception reaches the code that logged. With <code class="inline">setExceptionHandler()</code>, it goes to your callback instead, with the record, and the request goes on.</span><span data-locale="es" class="notranslate">Por defecto la excepción llega al código que registró. Con <code class="inline">setExceptionHandler()</code>, va a tu callback en su lugar, con el registro, y la petición sigue.</span><span data-locale="it" class="notranslate">Per impostazione predefinita l'eccezione arriva al codice che ha registrato. Con <code class="inline">setExceptionHandler()</code>, va invece alla tua callback, con il record, e la richiesta prosegue.</span></p>
+          </div>
+        </div>
+      </div>
+      <div class="accordion-item">
+        <button type="button" class="accordion-trigger" aria-expanded="false" aria-controls="faq-6">
+          <span class="i18n"><span data-i18n-default>What does the licence cover?</span><span data-locale="es" class="notranslate">¿Qué cubre la licencia?</span><span data-locale="it" class="notranslate">Cosa copre la licenza?</span></span>
+          <span class="accordion-icon" aria-hidden="true">+</span>
+        </button>
+        <div class="accordion-panel-wrap" id="faq-6">
+          <div class="accordion-panel-inner">
+            <p class="i18n accordion-panel"><span data-i18n-default>Hallmark is MIT-licensed.</span><span data-locale="es" class="notranslate">Hallmark tiene licencia MIT.</span><span data-locale="it" class="notranslate">Hallmark ha licenza MIT.</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+</div><!-- /.shell -->
+
+<footer class="reveal-footer">
+  <div class="wrap">
+    <p>
+      <a class="notranslate" href="https://github.com/cruciblephp/hallmark">GitHub</a><span class="no-print"> ·</span>
+      <a href="docs.html" class="i18n"><span data-i18n-default>Docs</span><span data-locale="es" class="notranslate">Documentación</span><span data-locale="it" class="notranslate">Documentazione</span></a><span class="no-print"> ·</span>
+      <a href="changelog.html" class="i18n"><span data-i18n-default>Changelog</span><span data-locale="es" class="notranslate">Cambios</span><span data-locale="it" class="notranslate">Modifiche</span></a><span class="no-print"> ·</span>
+      <a href="https://github.com/cruciblephp/hallmark/blob/main/LICENSE" class="i18n"><span data-i18n-default>License</span><span data-locale="es" class="notranslate">Licencia</span><span data-locale="it" class="notranslate">Licenza</span></a>
+    </p>
+    <p class="muted"><span class="no-print notranslate"><svg class="logo-mark logo-mark--sm" aria-hidden="true"><use href="#icon-hallmark"/></svg> Hallmark · by </span><a class="notranslate" href="https://github.com/lucianofedericopereira">Luciano Federico Pereira</a><span class="no-print"> · </span><span>MIT</span></p>
+  </div>
+</footer>
+
+<button type="button" class="back-to-top" id="back-to-top" aria-label="Back to top">
+  <svg aria-hidden="true"><use href="#icon-chevron-up"/></svg>
+</button>
+
+<script src="assets/site.js"></script>
+<script src="assets/locale.js"></script>
+</body>
+</html>

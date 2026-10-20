@@ -1,0 +1,94 @@
+{
+    "name": "hallmark/hallmark",
+    "description": "A modern, fully-typed PSR-3 logging library for PHP 8.3+ — the handler/formatter/processor architecture of Monolog, rebuilt from scratch around enums, readonly value objects and strict types.",
+    "type": "library",
+    "keywords": [
+        "log",
+        "logging",
+        "psr-3",
+        "psr-log",
+        "logger",
+        "handler",
+        "monolog"
+    ],
+    "homepage": "https://github.com/cruciblephp/hallmark",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Luciano Federico Pereira",
+            "role": "Author"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/cruciblephp/hallmark/issues",
+        "source": "https://github.com/cruciblephp/hallmark"
+    },
+    "funding": [
+        {
+            "type": "ko-fi",
+            "url": "https://ko-fi.com/lucianofedericopereira"
+        },
+        {
+            "type": "opencollective",
+            "url": "https://opencollective.com/crucible-free-software"
+        }
+    ],
+    "config": {
+        "platform": {
+            "php": "8.3.0"
+        },
+        "optimize-autoloader": true,
+        "sort-packages": true
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "require": {
+        "php": ">=8.3",
+        "psr/log": "^3.0"
+    },
+    "provide": {
+        "psr/log-implementation": "3.0.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Hallmark\\": "src/",
+            "Hallmark\\Laravel\\": "integration/laravel/src/",
+            "Hallmark\\PHPUnit\\": "integration/phpunit/src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "FanClub\\": "examples/fan-club/src/",
+            "Hallmark\\Tests\\": "tests/",
+            "Modules\\": "examples/laravents/modules/"
+        }
+    },
+    "require-dev": {
+        "cruciblephp/crucible": "^1.1.5",
+        "friendsofphp/php-cs-fixer": "^3.95",
+        "laravents/laravents": "^1.0",
+        "orchestra/testbench": "^11.3",
+        "phpstan/phpstan": "^2.3",
+        "rector/rector": "^2.7"
+    },
+    "suggest": {
+        "laravel/framework": "To log through Hallmark from a Laravel log channel (driver: hallmark)",
+        "phpunit/phpunit": "To use the PHPUnit integration (AssertLog trait / LogRecordConstraint) for asserting on captured log records"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Hallmark\\Laravel\\HallmarkServiceProvider"
+            ]
+        }
+    },
+    "scripts": {
+        "psr":      "@composer dump-autoload --optimize --strict-psr",
+        "lint":     "php-cs-fixer fix --dry-run --diff",
+        "lint:fix": "php-cs-fixer fix",
+        "refactor": "rector process --dry-run",
+        "analyse":  ["Composer\\Config::disableProcessTimeout", "phpstan analyse --memory-limit=1G"],
+        "test":     ["Composer\\Config::disableProcessTimeout", "crucible"],
+        "check":    ["@psr", "@lint", "@refactor", "@analyse", "@test"]
+    }
+}

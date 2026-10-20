@@ -1,0 +1,11 @@
+{"message":"Setting 102 for Ringo","level":100,"level_name":"DEBUG","channel":"fan-club","datetime":"<date>","context":{"publication":"102","member":"Ringo"},"extra":{"correlation_id":"job-102"}}
+{"message":"Headline 102 was not printed","level":400,"level_name":"ERROR","channel":"fan-club","datetime":"<date>","context":{"publication":"102","exception":{"class":"LengthException","message":"\"The one who joined in August 1962 to replace Pete on drums\" is longer than the 40-character column.","code":0,"file":"examples/fan-club/src/Press.php:34","trace":["#0 examples/fan-club/src/Worker.php(39): FanClub\\Press->printHeadline()","#1 examples/fan-club/run.php(45): FanClub\\Worker->run()","#2 {main}"]},"event_code":"PRESS-2002"},"extra":{"correlation_id":"job-102"}}
+
+== fan-club-<date>.log
+[<date>] fan-club.INFO: John calls George "The Quiet One" {"by":"John","to":"George","nickname":"The Quiet One","event_code":"BAND-1001"} {"correlation_id":"band-session"}
+[<date>] fan-club.WARNING: Only a member gives a nickname: Luciano asked to call John "The Smart One" {"by":"Luciano","to":"John","nickname":"The Smart One","event_code":"BAND-1003"} {"correlation_id":"band-session"}
+[<date>] fan-club.NOTICE: Pete leaves the band and Ringo takes the drums {"out":"Pete","in":"Ringo","instrument":"drums","event_code":"BAND-1002"} {"correlation_id":"band-session"}
+[<date>] fan-club.INFO: Welcome to the fan club, Luciano {"fan":"Luciano","email":"[REDACTED]","password":"[REDACTED]","event_code":"FAN-3001"} {"correlation_id":"signup"}
+[<date>] fan-club.INFO: Headline 101: George is "The Quiet One" {"publication":"101","member":"George","nickname":"The Quiet One","event_code":"PRESS-2001"} {"correlation_id":"job-101"}
+[<date>] fan-club.ERROR: Headline 102 was not printed {"publication":"102","exception":{"class":"LengthException","message":"\"The one who joined in August 1962 to replace Pete on drums\" is longer than the 40-character column.","code":0,"file":"examples/fan-club/src/Press.php:34"},"event_code":"PRESS-2002"} {"correlation_id":"job-102"}
+[<date>] fan-club.INFO: Headline 103: Ringo is "Ringo" {"publication":"103","member":"Ringo","nickname":"Ringo","event_code":"PRESS-2001"} {"correlation_id":"job-103"}

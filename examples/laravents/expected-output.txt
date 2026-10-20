@@ -1,0 +1,2 @@
+[<date>] fan-club.INFO: Nickname given {"member_id":2,"nickname":"The Quiet One"} {"message_id":"<id-1>","correlation_id":"req-42"}
+[<date>] fan-club.INFO: Band event {"event":"Modules\\Band\\Api\\NicknameGiven","message_id":"<id-2>"} {"message_id":"<id-2>","correlation_id":"req-42","causation_id":"<id-1>"}
