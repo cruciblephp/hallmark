@@ -37,7 +37,7 @@ $log->warning('Payment {order} retried', ['order' => 4711, 'card_number' => '424
 ```
 
 ```text
-{"message":"Payment 4711 retried","level":300,"level_name":"WARNING","channel":"shop","datetime":"2026-10-19T22:37:03.265717+00:00","context":{"order":4711,"card_number":"[REDACTED]"},"extra":{"correlation_id":"req-7f3a"}}
+{"message":"Payment 4711 retried","context":{"order":4711,"card_number":"[REDACTED]"},"level":300,"level_name":"WARNING","channel":"shop","datetime":"2026-10-19T22:37:03.265717+00:00","extra":{"correlation_id":"req-7f3a"}}
 ```
 
 `debug()` is below the handler's level, so no record is built. The card number is masked before the message is interpolated, and every line carries the correlation id.
@@ -188,7 +188,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) before sending a change, and [SECURITY.md
 
 ## Relationship to Monolog
 
-Hallmark is an independent implementation of Monolog's design and shares no code with it. Its level values, JSON and dates were compared against Monolog's own output and match it.
+Hallmark is an independent implementation of Monolog's design and shares no code with it. Its level values, JSON, lines and dates are compared against Monolog's own output in the test suite and match it, with two differences, both where Monolog writes what was not logged: a stack trace on a line never carries the call's arguments, which Monolog's does under PHP's development ini, and a `%placeholder%` inside a logged value is written as it is, where Monolog's line formatter expands it.
 
 ## Credits
 

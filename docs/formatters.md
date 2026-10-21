@@ -27,6 +27,7 @@ The format is a template of placeholders:
 | `%message%` | The message |
 | `%context%` | The context, as JSON |
 | `%extra%` | The extra, as JSON |
+| `%context.key%`, `%extra.key%` | One value, which then leaves `%context%` or `%extra%`; nothing when the key is absent |
 
 The default is `[%datetime%] %channel%.%level_name%: %message% %context% %extra%` and a newline. A newline inside a message or a value becomes a space, so one record is always one line; `$allowInlineLineBreaks` keeps them. `$ignoreEmptyContextAndExtra` writes nothing for an empty bag instead of `[]`:
 
@@ -56,7 +57,7 @@ new JsonFormatter(
     bool $appendNewline = true,
     ?string $dateFormat = null,
     bool $ignoreEmptyContextAndExtra = false,
-    bool $includeStacktraces = true,
+    bool $includeStacktraces = false,
 );
 ```
 
@@ -78,8 +79,8 @@ $log->info('a context', ['order' => 4711]);
 ```
 
 ```text
-{"message":"empty bags","level":200,"level_name":"INFO","channel":"app","datetime":"2026-10-19","context":{},"extra":{}}
-{"message":"a context","level":200,"level_name":"INFO","channel":"app","datetime":"2026-10-19","context":{"order":4711},"extra":{}}
+{"message":"empty bags","context":{},"level":200,"level_name":"INFO","channel":"app","datetime":"2026-10-19","extra":{}}
+{"message":"a context","context":{"order":4711},"level":200,"level_name":"INFO","channel":"app","datetime":"2026-10-19","extra":{}}
 ```
 
 `formatBatch()`, which the decorators call, lays out several records as one JSON array (`BatchMode::Json`) or one object per line (`BatchMode::Newlines`).
@@ -88,18 +89,21 @@ $log->info('a context', ['order' => 4711]);
 
 Both formatters normalize the context and the extra before writing them:
 
-| Value | Written as |
-|---|---|
-| A string, integer, boolean or `null` | Itself |
-| `NAN`, `INF`, `-INF` | `"NaN"`, `"INF"`, `"-INF"` |
-| A `DateTimeInterface` | A string in the date format |
-| A `Throwable` | Its class, message, code, `file:line`, its trace when stacktraces are on, and its previous exception |
-| A `JsonSerializable` | What `jsonSerialize()` returns, normalized in turn |
-| A `Stringable` | Its string |
-| Any other object | `{"Class": {its public properties}}` |
-| A resource | `[resource(stream)]` |
+| Value | `JsonFormatter` | `LineFormatter` |
+|---|---|---|
+| A string, integer, boolean or `null` | Itself | Itself |
+| `NAN`, `INF`, `-INF` | `0`, as JSON cannot hold them | `"NaN"`, `"INF"`, `"-INF"` |
+| A string that is not valid UTF-8 | The bad bytes as `�` | The same |
+| A `DateTimeInterface` | A string in the date format | The same |
+| A `Throwable` | `{"class", "message", "code", "file"}`, its `trace` when stacktraces are on, and its `previous` | `[object] (Class(code: 3): message at file:line)`, a `[stacktrace]` when on, and each `[previous exception]` |
+| A `JsonSerializable` | What `jsonSerialize()` returns, as `json_encode()` writes it | `{"Class": what jsonSerialize() returns}` |
+| A `Stringable` | Its string, or its class when `__toString()` throws | `{"Class": "its string"}`, or its public properties when `__toString()` throws |
+| Any other object | Its public properties, as `json_encode()` writes them | `{"Class": {its public properties}}` |
+| A resource | `"[resource(stream)]"` | The same |
 
-Normalization stops 9 levels deep and after 1000 items in one array, so a cyclic or enormous value can never stall the logger. `includeStacktraces()` turns the exception trace on or off after construction; the line formatter leaves it off by default and the JSON formatter on:
+An anonymous class is named `class@anonymous`, or `Parent@anonymous`, without the file it was declared in. Each is what Monolog writes.
+
+Normalization stops 9 levels below the record and after 1000 items in one array, so a cyclic or enormous value can never stall the logger. Both formatters leave the exception trace off by default, as Monolog's do:
 
 ```php
 use Hallmark\Formatter\JsonFormatter;
@@ -107,7 +111,7 @@ use Hallmark\Handler\StreamHandler;
 use Hallmark\Logger;
 
 $handler = new StreamHandler('php://stdout');
-$handler->setFormatter(new JsonFormatter(dateFormat: 'Y-m-d', includeStacktraces: false));
+$handler->setFormatter(new JsonFormatter(dateFormat: 'Y-m-d'));
 $log = new Logger('app', [$handler]);
 
 $log->error('import failed', [
@@ -117,7 +121,67 @@ $log->error('import failed', [
 ```
 
 ```text
-{"message":"import failed","level":400,"level_name":"ERROR","channel":"app","datetime":"2026-10-19","context":{"ratio":"NaN","exception":{"class":"RuntimeException","message":"disk full","code":28,"file":"sample.php:13"}},"extra":{}}
+{"message":"import failed","context":{"ratio":0,"exception":{"class":"RuntimeException","message":"disk full","code":28,"file":"sample.php:13"}},"level":400,"level_name":"ERROR","channel":"app","datetime":"2026-10-19","extra":{}}
+```
+
+## Stack traces
+
+`$includeStacktraces`, or `includeStacktraces()` after construction, adds the trace. In the JSON, each frame is written as `file:line`, as Monolog writes it, and never with the arguments of the call, so a password passed to the function that threw does not reach the log, whatever `zend.exception_ignore_args` says. A frame the engine called, with no file of its own, is written `internal[function]:0`. `setBasePath()` strips a folder from every file name, and `setMaxTraceLength()` keeps the first frames only:
+
+```php
+use Hallmark\Formatter\JsonFormatter;
+use Hallmark\Handler\StreamHandler;
+use Hallmark\Logger;
+
+function charge(string $card): void
+{
+    throw new RuntimeException('declined');
+}
+
+$handler = new StreamHandler('php://stdout');
+$handler->setFormatter((new JsonFormatter(dateFormat: 'Y-m-d', includeStacktraces: true))->setBasePath(__DIR__)->setMaxTraceLength(10));
+$log = new Logger('app', [$handler]);
+
+try {
+    charge('4242 4242 4242 4242');
+} catch (RuntimeException $e) {
+    $log->error('charge failed', ['exception' => $e]);
+}
+```
+
+```text
+{"message":"charge failed","context":{"exception":{"class":"RuntimeException","message":"declined","code":0,"file":"sample.php:9","trace":["sample.php:17"]}},"level":400,"level_name":"ERROR","channel":"app","datetime":"2026-10-20","extra":{}}
+```
+
+On a line, the trace is a `[stacktrace]` block in the layout of PHP's `getTraceAsString()`, and turning it on keeps line breaks, as in Monolog. Each call is written without its arguments, `charge()`: what Monolog writes under PHP's production ini. Under the development ini, Monolog's line carries the arguments, their first 15 characters, `charge('4242 4242 4242 ...')`; Hallmark's never does.
+
+```php
+use Hallmark\Formatter\LineFormatter;
+use Hallmark\Handler\StreamHandler;
+use Hallmark\Logger;
+
+function charge(string $card): void
+{
+    throw new RuntimeException('declined');
+}
+
+$handler = new StreamHandler('php://stdout');
+$handler->setFormatter((new LineFormatter("%message% %context%\n", includeStacktraces: true))->setBasePath(__DIR__));
+$log = new Logger('app', [$handler]);
+
+try {
+    charge('4242 4242 4242 4242');
+} catch (RuntimeException $e) {
+    $log->error('charge failed', ['exception' => $e]);
+}
+```
+
+```text
+charge failed {"exception":"[object] (RuntimeException(code: 0): declined at sample.php:9)
+[stacktrace]
+#0 sample.php(17): charge()
+#1 {main}
+"}
 ```
 
 ## Dates

@@ -12,7 +12,9 @@ declare(strict_types=1);
 
 namespace Hallmark\Tests\Formatter;
 
+use function array_keys;
 use function explode;
+use function ini_set;
 use function json_decode;
 
 use Hallmark\Formatter\BatchMode;
@@ -95,13 +97,57 @@ final class JsonFormatterTest extends TestCase
 
     public function testExceptionIsNormalizedWithTrace(): void
     {
-        $formatter = new JsonFormatter();
+        $formatter = new JsonFormatter(includeStacktraces: true);
         $output    = $formatter->format($this->record(context: ['exception' => new \RuntimeException('boom')]));
 
         $decoded = json_decode(trim($output), true);
 
         self::assertMatchesShape('array{context: array{exception: array{class: string, trace: list<string>}}}', $decoded);
         self::assertSame('RuntimeException', $decoded['context']['exception']['class']);
+    }
+
+    public function testStacktracesAreOffByDefaultAsInMonolog(): void
+    {
+        $decoded = json_decode(trim((new JsonFormatter())->format($this->record(context: ['exception' => new \RuntimeException('boom')]))), true);
+
+        self::assertMatchesShape('array{context: array{exception: array<string, mixed>}}', $decoded);
+        self::assertArrayNotHasKey('trace', $decoded['context']['exception']);
+    }
+
+    public function testATraceFrameIsFileAndLineAndNeverItsArguments(): void
+    {
+        $previous = ini_set('zend.exception_ignore_args', '0');
+
+        try {
+            $e = $this->throwWith('hunter2-secret');
+        } finally {
+            ini_set('zend.exception_ignore_args', (string) $previous);
+        }
+
+        $output  = (new JsonFormatter(includeStacktraces: true))->format($this->record(context: ['exception' => $e]));
+        $decoded = json_decode(trim($output), true);
+
+        self::assertStringNotContainsString('hunter2-secret', $output);
+        self::assertMatchesShape('array{context: array{exception: array{trace: non-empty-list<string>}}}', $decoded);
+        self::assertSame(__FILE__ . ':' . self::$throwLine, $decoded['context']['exception']['trace'][0]);
+    }
+
+    public function testABasePathIsStrippedAndTheTraceCapped(): void
+    {
+        $formatter = (new JsonFormatter(includeStacktraces: true))->setBasePath(\dirname(__DIR__, 2) . '/')->setMaxTraceLength(1);
+        $decoded   = json_decode(trim($formatter->format($this->record(context: ['exception' => $this->throwWith('x')]))), true);
+
+        self::assertMatchesShape('array{context: array{exception: array{file: string, trace: list<string>}}}', $decoded);
+        self::assertStringStartsWith('tests/Formatter/JsonFormatterTest.php:', $decoded['context']['exception']['file']);
+        self::assertSame(['tests/Formatter/JsonFormatterTest.php:' . self::$throwLine], $decoded['context']['exception']['trace']);
+    }
+
+    public function testKeysAreInMonologsOrder(): void
+    {
+        $decoded = json_decode(trim((new JsonFormatter())->format($this->record())), true);
+
+        self::assertIsArray($decoded);
+        self::assertSame(['message', 'context', 'level', 'level_name', 'channel', 'datetime', 'extra'], array_keys($decoded));
     }
 
     public function testEmptyContextAndExtraAreJsonObjects(): void
@@ -133,7 +179,20 @@ final class JsonFormatterTest extends TestCase
         self::assertStringContainsString('"at":"2026-07-27"', $output);
     }
 
-    public function testJsonSerializableOutputIsNormalizedToo(): void
+    private static int $throwLine = 0;
+
+    /** An exception whose top frame is the call below, with `$secret` as its argument. */
+    private function throwWith(string $secret): \RuntimeException
+    {
+        try {
+            self::$throwLine = __LINE__ + 1;
+            (static fn (string $password) => throw new \RuntimeException('wrong password'))($secret);
+        } catch (\RuntimeException $e) {
+            return $e;
+        }
+    }
+
+    public function testJsonSerializableOutputIsLeftToTheEncoderAsInMonolog(): void
     {
         $value = new class implements \JsonSerializable {
             public function jsonSerialize(): mixed
@@ -144,6 +203,6 @@ final class JsonFormatterTest extends TestCase
 
         $output = (new JsonFormatter())->format($this->record(context: ['value' => $value]));
 
-        self::assertStringContainsString('"value":{"ratio":"NaN","at":"2026-07-28T00:00:00+00:00"}', $output);
+        self::assertStringContainsString('"value":{"ratio":0,"at":{"date":"2026-07-28 00:00:00.000000","timezone_type":1,"timezone":"+00:00"}}', $output);
     }
 }

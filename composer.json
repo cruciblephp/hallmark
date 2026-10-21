@@ -64,9 +64,10 @@
         }
     },
     "require-dev": {
-        "cruciblephp/crucible": "^1.1.5",
+        "cruciblephp/crucible": "^1.1.7",
         "friendsofphp/php-cs-fixer": "^3.95",
         "laravents/laravents": "^1.0",
+        "monolog/monolog": "^3.0",
         "orchestra/testbench": "^11.3",
         "phpstan/phpstan": "^2.3",
         "rector/rector": "^2.7"

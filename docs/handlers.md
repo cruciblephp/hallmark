@@ -28,7 +28,7 @@ new StreamHandler(
 
 <!-- not run: a signature, not a program -->
 
-The stream is opened on the first write, in append mode, and a missing directory is created. A resource you pass is yours: `close()` leaves it open. With `$useLocking`, each write holds an exclusive lock, so processes appending to the same file never interleave a line.
+The stream is opened on the first write, in append mode, and a missing directory is created. A resource you pass is yours: `close()` leaves it open. With `$useLocking`, each write holds an exclusive lock, so processes appending to the same file never interleave a line. A write that fails or falls short, a full disk or a closed pipe, throws a `RuntimeException`, which reaches the logger's exception handler when it has one, rather than losing the record without a word.
 
 ```php
 use Hallmark\Handler\StreamHandler;
@@ -217,7 +217,7 @@ $log->info('shipped', ['order' => 7]);
 
 ```text
 shipped []
-{"message":"shipped","level":200,"level_name":"INFO","channel":"app","datetime":"2026-10-19","context":{"order":7},"extra":{"sink":"json"}}
+{"message":"shipped","context":{"order":7},"level":200,"level_name":"INFO","channel":"app","datetime":"2026-10-19","extra":{"sink":"json"}}
 ```
 
 ## Writing a handler

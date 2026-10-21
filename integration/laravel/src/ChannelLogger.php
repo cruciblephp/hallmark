@@ -23,6 +23,8 @@ use Psr\Log\LoggerTrait;
  * `getHandlers()` on a channel that has them, with Monolog's types. Hallmark's
  * {@see Logger} has methods of those names with its own types, so the channel
  * hides them behind PSR-3 and exposes the logger through {@see self::getLogger()}.
+ * A `stack` channel takes {@see self::getHandlers()}: one Monolog handler that
+ * forwards to the Hallmark logger.
  */
 final readonly class ChannelLogger implements LoggerInterface
 {
@@ -34,6 +36,26 @@ final readonly class ChannelLogger implements LoggerInterface
     public function getLogger(): Logger
     {
         return $this->logger;
+    }
+
+    /**
+     * What a `stack` channel collects from each of its channels.
+     *
+     * @return list<StackHandler>
+     */
+    public function getHandlers(): array
+    {
+        return [new StackHandler($this->logger)];
+    }
+
+    /**
+     * The channel's processors run inside the Hallmark logger, none in the stack.
+     *
+     * @return list<never>
+     */
+    public function getProcessors(): array
+    {
+        return [];
     }
 
     /**

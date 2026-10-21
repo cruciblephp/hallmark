@@ -17,13 +17,23 @@ concurrency:
 
 jobs:
   gate:
-    name: 'composer check (PHP ${{ matrix.php }})'
-    runs-on: ubuntu-latest
+    name: "composer check (PHP ${{ matrix.php }}, ${{ matrix.os }}${{ matrix.ini && ', ' || '' }}${{ matrix.ini }})"
+    runs-on: ${{ matrix.os }}
 
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         php: ['8.3', '8.4', '8.5']
+        ini: ['']
+        include:
+          # The temp folder is behind a symlink, which a path strip must survive.
+          - os: macos-latest
+            php: '8.5'
+          # PHP's development ini: a trace keeps each frame's arguments.
+          - os: ubuntu-latest
+            php: '8.5'
+            ini: 'zend.exception_ignore_args=Off'
 
     permissions:
       contents: read
@@ -37,6 +47,7 @@ jobs:
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
         with:
           php-version: ${{ matrix.php }}
+          ini-values: ${{ matrix.ini }}
           coverage: pcov
           tools: composer:v2
 
@@ -48,8 +59,8 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: composer-${{ matrix.php }}-${{ hashFiles('composer.json') }}
-          restore-keys: composer-${{ matrix.php }}-
+          key: composer-${{ matrix.os }}-${{ matrix.php }}-${{ hashFiles('composer.json') }}
+          restore-keys: composer-${{ matrix.os }}-${{ matrix.php }}-
 
       - name: Install dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
@@ -62,12 +73,12 @@ jobs:
 
       # One job collects coverage and reports to code scanning.
       - name: Coverage and SARIF
-        if: matrix.php == '8.5'
+        if: matrix.php == '8.5' && matrix.os == 'ubuntu-latest' && matrix.ini == ''
         run: composer test -- --coverage --report sarif:${{ runner.temp }}/crucible.sarif
 
       # Code scanning takes uploads from a private repository only with Advanced Security: uploaded once public.
       - name: Upload SARIF
-        if: matrix.php == '8.5' && always() && !github.event.repository.private
+        if: matrix.php == '8.5' && matrix.os == 'ubuntu-latest' && matrix.ini == '' && always() && !github.event.repository.private
         uses: github/codeql-action/upload-sarif@ce5e7eeac396d720fe2d802714996c8ce561e311 # v3.39.0
         with:
           sarif_file: ${{ runner.temp }}/crucible.sarif

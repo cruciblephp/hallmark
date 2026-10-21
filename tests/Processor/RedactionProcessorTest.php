@@ -53,6 +53,14 @@ final class RedactionProcessorTest extends TestCase
         self::assertSame('kept', $result->context['token']);
     }
 
+    public function testAWildcardKeyMasksEveryKeyItMatches(): void
+    {
+        $processor = new RedactionProcessor(keys: ['*_token', 'x-api-*']);
+        $result    = $processor($this->record(context: ['csrf_token' => 'a', 'Session_Token' => 'b', 'X-Api-Key' => 'c', 'tokens' => 'kept']));
+
+        self::assertSame(['csrf_token' => '[REDACTED]', 'Session_Token' => '[REDACTED]', 'X-Api-Key' => '[REDACTED]', 'tokens' => 'kept'], $result->context);
+    }
+
     public function testUntouchedRecordIsReturnedUnchanged(): void
     {
         $processor = new RedactionProcessor();

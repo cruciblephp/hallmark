@@ -25,6 +25,7 @@ use function is_string;
 use function mkdir;
 use function sprintf;
 use function str_starts_with;
+use function strlen;
 use function strpos;
 use function substr;
 
@@ -104,10 +105,17 @@ class StreamHandler extends AbstractProcessingHandler
             flock($stream, LOCK_EX);
         }
 
-        fwrite($stream, $record->formatted);
+        try {
+            $written = @fwrite($stream, $record->formatted);
+        } finally {
+            if ($this->useLocking) {
+                flock($stream, LOCK_UN);
+            }
+        }
 
-        if ($this->useLocking) {
-            flock($stream, LOCK_UN);
+        // A full disk or a closed pipe goes to the logger's exception handler, not nowhere.
+        if ($written === false || $written < strlen($record->formatted)) {
+            throw new RuntimeException(sprintf('The record could not be written to "%s": %s', $this->url ?? 'the stream', $this->lastError()));
         }
     }
 

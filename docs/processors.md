@@ -120,6 +120,25 @@ $log->info('login', ['user' => 'sam', 'Password' => 'hunter2', 'payment' => ['ca
 login {"user":"sam","Password":"[REDACTED]","payment":{"card_number":"[REDACTED]","amount":100}}
 ```
 
+A `*` in a key matches any run of characters, so `*_token` masks `csrf_token` and `session_token`, and `x-api-*` masks `X-Api-Key`:
+
+```php
+use Hallmark\Formatter\LineFormatter;
+use Hallmark\Handler\StreamHandler;
+use Hallmark\Logger;
+use Hallmark\Processor\RedactionProcessor;
+
+$handler = new StreamHandler('php://stdout');
+$handler->setFormatter(new LineFormatter("%message% %context%\n"));
+$log = new Logger('app', [$handler], [new RedactionProcessor([...RedactionProcessor::DEFAULT_KEYS, '*_token', 'x-api-*'])]);
+
+$log->info('request', ['csrf_token' => 'a1b2', 'X-Api-Key' => 'k-9', 'tokens' => 3]);
+```
+
+```text
+request {"csrf_token":"[REDACTED]","X-Api-Key":"[REDACTED]","tokens":3}
+```
+
 It reads the context only: a secret already written into the message is out of its reach.
 
 ## Order

@@ -28,6 +28,8 @@ Package discovery registers `HallmarkServiceProvider`, which adds a `hallmark` d
 | `name` | the environment | The channel name on each record |
 | `days` | none | One file per day, `days` of them kept, as `RotatingFileHandler` writes them |
 
+A value is read as `env()` gives it: `env('LOG_DAILY_DAYS', 14)` is the string `"14"` when the variable is set, and is read as `14`; a boolean may be `"1"` or `"0"`. Any other value, `'days' => 'fourteen'`, is refused with an `InvalidArgumentException` naming the key, rather than dropped: a channel that silently stops rotating is worse than one that fails. Laravel catches it and logs the failure, and the channel's records after it, through its emergency logger, `storage/logs/laravel.log` unless an `emergency` channel names another path.
+
 Then the channel is used as any other:
 
 ```php
@@ -65,6 +67,18 @@ $hallmark->pushProcessor(new IntrospectionProcessor(Level::Warning));
 
 Laravel's log manager calls `isHandling()`, `pushProcessor()` and `getHandlers()` on a channel that has methods by those names, and it calls them with Monolog's types: a level string, Laravel's own Monolog processor, Monolog handlers. Hallmark's `Logger` has methods by those names with its own types, so a bare `Logger` returned from `Log::extend()` fails on its first line. `ChannelLogger` is a plain PSR-3 logger that hides them.
 
-## What a channel cannot do
+## In a `stack`
 
-A `stack` channel can hold only Monolog channels: Laravel builds one Monolog logger from their Monolog handlers. A `hallmark` channel cannot join one. Write to it by name, or make it the default channel.
+A `stack` channel builds one Monolog logger from the Monolog handlers of its channels. A `hallmark` channel gives it one, `StackHandler`, which forwards each record to the Hallmark logger, so it joins a stack as any other channel does:
+
+```php
+// config/logging.php
+'stack' => [
+    'driver'   => 'stack',
+    'channels' => ['hallmark', 'slack'],
+],
+```
+
+<!-- not run: Laravel configuration; tests/Laravel/HallmarkChannelTest.php holds it -->
+
+The record keeps its level, message, context and time. The `extra` added by the stack's processors stays behind; the `hallmark` channel's own processors, Laravel's Context among them, add theirs.

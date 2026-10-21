@@ -17,8 +17,10 @@ use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Log;
 use Hallmark\Laravel\ChannelLogger;
 use Hallmark\Laravel\ContextLogProcessor;
+use Hallmark\Exception\InvalidArgumentException;
 use Hallmark\Laravel\CreateHallmarkLogger;
 use Hallmark\Laravel\HallmarkServiceProvider;
+use Hallmark\Laravel\StackHandler;
 use Orchestra\Testbench\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 
@@ -26,6 +28,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(CreateHallmarkLogger::class)]
 #[CoversClass(ChannelLogger::class)]
 #[CoversClass(ContextLogProcessor::class)]
+#[CoversClass(StackHandler::class)]
 final class HallmarkChannelTest extends TestCase
 {
     private string $dir;
@@ -86,6 +89,45 @@ final class HallmarkChannelTest extends TestCase
         Log::channel('hallmark')->info('dated');
 
         self::assertFileExists($this->dir . '/app-' . date('Y-m-d') . '.log');
+    }
+
+    public function testDaysFromEnvWritesAFilePerDay(): void
+    {
+        $this->channel(['days' => '7']);
+
+        Log::channel('hallmark')->info('dated');
+
+        self::assertFileExists($this->dir . '/app-' . date('Y-m-d') . '.log');
+    }
+
+    public function testABooleanFromEnvIsRead(): void
+    {
+        $this->channel(['replace_placeholders' => '1']);
+
+        Log::channel('hallmark')->info('User {id} signed in', ['id' => 7]);
+
+        self::assertStringContainsString('User 7 signed in', $this->written());
+    }
+
+    public function testASettingItCannotUseIsRefused(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('The hallmark channel\'s "days" must be an integer, got string \'fourteen\'.');
+
+        self::assertNotNull($this->app);
+
+        (new CreateHallmarkLogger($this->app))(['path' => $this->dir . '/app.log', 'days' => 'fourteen']);
+    }
+
+    public function testAHallmarkChannelJoinsAStack(): void
+    {
+        $this->channel(['level' => 'warning']);
+        config(['logging.channels.both' => ['driver' => 'stack', 'channels' => ['hallmark']]]);
+
+        Log::channel('both')->info('below the threshold');
+        Log::channel('both')->warning('Low disk space', ['free_mb' => 128]);
+
+        self::assertFileMatchesFormat("[%s] testing.WARNING: Low disk space {\"free_mb\":128} []\n", $this->dir . '/app.log');
     }
 
     public function testTheCustomViaFormBuildsTheSameChannel(): void

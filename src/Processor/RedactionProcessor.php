@@ -12,8 +12,13 @@ declare(strict_types=1);
 
 namespace Hallmark\Processor;
 
+use function implode;
 use function is_array;
 use function is_string;
+use function preg_match;
+use function preg_quote;
+use function str_contains;
+use function str_replace;
 use function strtolower;
 
 use Hallmark\LogRecord;
@@ -23,7 +28,8 @@ use Hallmark\LogRecord;
  * log sink — the fast key-redaction Pino popularised.
  *
  * Matching is case-insensitive and recurses into nested arrays, so a `password`
- * three levels deep is caught too. Push this so it runs before any interpolation
+ * three levels deep is caught too. A `*` in a key matches any run of characters:
+ * `*_token` masks `csrf_token` and `session_token`. Push this so it runs before any interpolation
  * processor, otherwise a secret already spliced into the message escapes it.
  */
 final class RedactionProcessor implements ProcessorInterface
@@ -43,22 +49,35 @@ final class RedactionProcessor implements ProcessorInterface
     /** @var array<string, true> lower-cased key lookup */
     private array $redactKeys = [];
 
+    /** The keys with a `*`, as one pattern; null when there are none. */
+    private ?string $redactPattern = null;
+
     /**
-     * @param list<string> $keys context keys to mask (case-insensitive)
+     * @param list<string> $keys context keys to mask (case-insensitive), `*` a wildcard
      */
     public function __construct(
         array $keys = self::DEFAULT_KEYS,
         private readonly string $replacement = '[REDACTED]',
         private readonly bool $recursive = true,
     ) {
+        $patterns = [];
+
         foreach ($keys as $key) {
-            $this->redactKeys[strtolower($key)] = true;
+            if (str_contains($key, '*')) {
+                $patterns[] = str_replace('\\*', '.*', preg_quote($key, '/'));
+            } else {
+                $this->redactKeys[strtolower($key)] = true;
+            }
+        }
+
+        if ($patterns !== []) {
+            $this->redactPattern = '/^(?:' . implode('|', $patterns) . ')$/iD';
         }
     }
 
     public function __invoke(LogRecord $record): LogRecord
     {
-        if ($record->context === [] || $this->redactKeys === []) {
+        if ($record->context === [] || ($this->redactKeys === [] && $this->redactPattern === null)) {
             return $record;
         }
 
@@ -78,7 +97,7 @@ final class RedactionProcessor implements ProcessorInterface
     private function redact(array $data): array
     {
         foreach ($data as $key => $value) {
-            if (is_string($key) && isset($this->redactKeys[strtolower($key)])) {
+            if (is_string($key) && $this->isRedacted($key)) {
                 $data[$key] = $this->replacement;
 
                 continue;
@@ -90,5 +109,11 @@ final class RedactionProcessor implements ProcessorInterface
         }
 
         return $data;
+    }
+
+    private function isRedacted(string $key): bool
+    {
+        return isset($this->redactKeys[strtolower($key)])
+            || ($this->redactPattern !== null && preg_match($this->redactPattern, $key) === 1);
     }
 }

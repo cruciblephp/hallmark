@@ -35,9 +35,9 @@ Every public class, by namespace, with its constructor and its public methods. T
 | Class | Constructor and methods |
 |---|---|
 | `FormatterInterface` | `format(LogRecord $record): string` · `formatBatch(array $records): string` |
-| `NormalizerFormatter` | `__construct(?string $dateFormat = null, int $maxNormalizeDepth = 9, int $maxNormalizeItemCount = 1000)` · `includeStacktraces(bool $include = true): static` · constants `SIMPLE_DATE`, `RECORD_DATE` |
+| `NormalizerFormatter` | `__construct(?string $dateFormat = null, int $maxNormalizeDepth = 9, int $maxNormalizeItemCount = 1000)` · `includeStacktraces(bool $include = true): static` · `setBasePath(string $path = ''): static` · `setMaxTraceLength(?int $maxTraceLength): static` · constants `SIMPLE_DATE`, `RECORD_DATE` |
 | `LineFormatter` | `__construct(?string $format = null, ?string $dateFormat = null, bool $allowInlineLineBreaks = false, bool $ignoreEmptyContextAndExtra = false, bool $includeStacktraces = false)` · constant `DEFAULT_FORMAT` |
-| `JsonFormatter` | `__construct(BatchMode $batchMode = BatchMode::Json, bool $appendNewline = true, ?string $dateFormat = null, bool $ignoreEmptyContextAndExtra = false, bool $includeStacktraces = true)` |
+| `JsonFormatter` | `__construct(BatchMode $batchMode = BatchMode::Json, bool $appendNewline = true, ?string $dateFormat = null, bool $ignoreEmptyContextAndExtra = false, bool $includeStacktraces = false)` |
 | `BatchMode` (enum) | `Json`, `Newlines` |
 
 ## `Hallmark\Processor`
@@ -50,7 +50,7 @@ Every public class, by namespace, with its constructor and its public methods. T
 | `MemoryUsageProcessor` | `__construct(bool $realUsage = true, bool $useFormatting = true)` |
 | `UidProcessor` | `__construct(int $length = 7)` · `getUid(): string` · `reset()` |
 | `CorrelationIdProcessor` | `__construct(string $key = 'correlation_id', ?string $id = null, int $length = 16)` · `getId(): string` · `adopt(string $id)` · `reset(?string $id = null)` |
-| `RedactionProcessor` | `__construct(array $keys = self::DEFAULT_KEYS, string $replacement = '[REDACTED]', bool $recursive = true)` · constant `DEFAULT_KEYS` |
+| `RedactionProcessor` | `__construct(array $keys = self::DEFAULT_KEYS, string $replacement = '[REDACTED]', bool $recursive = true)`; a `*` in a key is a wildcard · constant `DEFAULT_KEYS` |
 
 ## `Hallmark\Event`
 
@@ -73,7 +73,8 @@ Every public class, by namespace, with its constructor and its public methods. T
 |---|---|
 | `HallmarkServiceProvider` | Registers the `hallmark` log driver |
 | `CreateHallmarkLogger` | `__construct(Application $app)` · `__invoke(array $config): ChannelLogger` |
-| `ChannelLogger` | A PSR-3 logger · `getLogger(): Logger` |
+| `ChannelLogger` | A PSR-3 logger · `getLogger(): Logger` · `getHandlers(): list<StackHandler>` · `getProcessors(): array` |
+| `StackHandler` | `__construct(Logger $logger)`; the Monolog handler a `stack` channel holds, forwarding each record to the Hallmark logger |
 | `ContextLogProcessor` | `__construct(Container $container)`; adds Laravel's Context to `extra` |
 
 ## `Hallmark\PHPUnit`

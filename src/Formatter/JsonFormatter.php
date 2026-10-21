@@ -12,7 +12,11 @@ declare(strict_types=1);
 
 namespace Hallmark\Formatter;
 
+use function array_filter;
 use function implode;
+use function is_array;
+use function is_object;
+use function is_scalar;
 
 use Hallmark\LogRecord;
 
@@ -28,7 +32,7 @@ final class JsonFormatter extends NormalizerFormatter
         private readonly bool $appendNewline = true,
         ?string $dateFormat = null,
         private readonly bool $ignoreEmptyContextAndExtra = false,
-        bool $includeStacktraces = true,
+        bool $includeStacktraces = false,
     ) {
         parent::__construct($dateFormat);
         $this->includeStacktraces($includeStacktraces);
@@ -37,6 +41,56 @@ final class JsonFormatter extends NormalizerFormatter
     public function format(LogRecord $record): string
     {
         return $this->toJson($this->normalizeRecord($record), true) . ($this->appendNewline ? "\n" : '');
+    }
+
+    /**
+     * As Monolog's JSON: a value the encoder can write is left to it, so a NaN
+     * becomes `0`, a `JsonSerializable` is serialized as it says, and an object's
+     * public properties are written as they are.
+     */
+    protected function normalize(mixed $data, int $depth = 0): mixed
+    {
+        if ($data === null || is_scalar($data)) {
+            return $data;
+        }
+
+        if ($depth > $this->maxNormalizeDepth) {
+            return 'Over ' . $this->maxNormalizeDepth . ' levels deep, aborting normalization';
+        }
+
+        if (is_array($data)) {
+            return $this->normalizeArray($data, $depth);
+        }
+
+        if (!is_object($data)) {
+            return parent::normalize($data, $depth);
+        }
+
+        if ($data instanceof \DateTimeInterface) {
+            return $data->format($this->dateFormat);
+        }
+
+        if ($data instanceof \Throwable) {
+            return $this->normalizeException($data, $depth);
+        }
+
+        if ($data instanceof \JsonSerializable) {
+            return $data;
+        }
+
+        if ($data instanceof \Stringable) {
+            try {
+                return $data->__toString();
+            } catch (\Throwable) {
+                return $data::class;
+            }
+        }
+
+        if ($data instanceof \__PHP_Incomplete_Class) {
+            return new \ArrayObject($data);
+        }
+
+        return $data;
     }
 
     public function formatBatch(array $records): string
@@ -48,28 +102,34 @@ final class JsonFormatter extends NormalizerFormatter
     }
 
     /**
+     * The keys in Monolog's order, the bags one level below the record.
+     *
      * @return array<string, mixed>
      */
     private function normalizeRecord(LogRecord $record): array
     {
-        $normalized = [
+        return array_filter([
             'message'    => $record->message,
+            'context'    => $this->normalizeBag($record->context),
             'level'      => $record->level->value,
             'level_name' => $record->level->getName(),
             'channel'    => $record->channel,
             'datetime'   => $this->formatRecordDate($record->datetime),
-        ];
+            'extra'      => $this->normalizeBag($record->extra),
+        ], static fn (mixed $value): bool => $value !== null);
+    }
 
-        foreach (['context' => $record->context, 'extra' => $record->extra] as $bag => $values) {
-            if ($values !== []) {
-                $normalized[$bag] = $this->normalize($values);
-            } elseif (!$this->ignoreEmptyContextAndExtra) {
-                // An empty bag is an object on the wire, as it is when populated.
-                $normalized[$bag] = new \stdClass();
-            }
+    /**
+     * @param array<array-key, mixed> $values
+     */
+    private function normalizeBag(array $values): mixed
+    {
+        if ($values !== []) {
+            return $this->normalize($values, 1);
         }
 
-        return $normalized;
+        // An empty bag is an object on the wire, as it is when populated.
+        return $this->ignoreEmptyContextAndExtra ? null : new \stdClass();
     }
 
     /**

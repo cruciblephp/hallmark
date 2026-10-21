@@ -76,7 +76,8 @@ final class DocsSamplesTest extends TestCase
     #[DataProvider('samples')]
     public function testTheSampleRunsAndPrintsWhatTheDocsShow(string $code, ?string $expected): void
     {
-        $dir = \sys_get_temp_dir() . '/' . \uniqid('hallmark-doc-', true);
+        // Resolved, as PHP reports a script's path: macOS's temp folder is behind a symlink.
+        $dir = (\realpath(\sys_get_temp_dir()) ?: \sys_get_temp_dir()) . '/' . \uniqid('hallmark-doc-', true);
         \mkdir($dir);
         \file_put_contents($dir . '/sample.php', "<?php\nrequire " . \var_export(\dirname(__DIR__, 2) . '/vendor/autoload.php', true) . ";\n" . $code . "\n");
 

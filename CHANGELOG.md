@@ -2,6 +2,29 @@
 
 Every release, as it ships.
 
+## v1.1.0 - 2026-10-20
+
+- Security: an exception's trace never carries the call's arguments, so a password passed to the function that threw no longer reaches the log past `RedactionProcessor` when `zend.exception_ignore_args` is off; the JSON writes each frame as `file:line` and a line writes what Monolog writes under PHP's production ini
+- Changed `JsonFormatter` to leave stack traces off by default, as Monolog's does; pass `includeStacktraces: true` to keep them
+- Changed the JSON's key order to Monolog's: `message`, `context`, `level`, `level_name`, `channel`, `datetime`, `extra`
+- Added `setBasePath()` and `setMaxTraceLength()` to the formatters, as in Monolog, to strip a folder from file names and cap the frames kept
+- Changed `JsonFormatter` to write values as Monolog's does: a `NAN` or `INF` as `0`, a `JsonSerializable`, a plain object and an enum as `json_encode()` writes them, a `Stringable` whose `__toString()` throws as its class name
+- Changed `LineFormatter` to write values as Monolog's does: an exception as `[object] (Class(code: N): message at file:line)` with a `[stacktrace]` block and each `[previous exception]`, a `Stringable`, a `JsonSerializable`, an enum and a plain object under their class name, an object's properties as `json_encode()` writes them, and an escaped line break inside JSON as a real one when line breaks are kept
+- Changed `LineFormatter` so turning stack traces on keeps line breaks, as in Monolog
+- Added `%context.key%` and `%extra.key%` placeholders to `LineFormatter`, as in Monolog
+- Fixed a `Stringable` whose `__toString()` throws failing the whole record; it is written as Monolog writes it
+- Fixed an anonymous class written with a NUL byte and the file it was declared in; it is written `class@anonymous` or `Parent@anonymous`
+- Fixed invalid UTF-8 in a value turning it into `null`; the bad bytes are written as U+FFFD, as in Monolog
+- Fixed the depth and item limits to count from the record, as Monolog does, and the item limit's note to give the total
+- Fixed a Laravel `hallmark` channel dropping a `days` read from `env()`, a string, and writing one file that never rotated; numbers and booleans are read as `env()` gives them, and a value the channel cannot use is refused with an `InvalidArgumentException` naming the key
+- Added `StackHandler`, so a `hallmark` channel can join a Laravel `stack` channel
+- Added `*` wildcards to `RedactionProcessor` keys, such as `*_token`
+- Changed `StreamHandler` to throw a `RuntimeException` when a write fails or falls short, instead of losing the record without a word
+- Fixed two docs samples failing where the temp folder is a symlink, as on macOS
+- Added a test that runs every kind of value through Hallmark's and Monolog's formatters, under each option, and compares the output; the two differences the README names, a line trace's arguments and a placeholder inside a value, have tests of their own
+- Added CI jobs on macOS and with PHP's development ini
+- Updated `cruciblephp/crucible` to `^1.1.7`, which scopes a `beforeEach` inside `describe()` to its block
+
 ## v1.0.0 - 2026-10-20
 
 - Added `Logger`, a PSR-3 logger with LIFO handler and processor stacks, lazy processor evaluation, lazy messages, child loggers with bound context, `reset()` for long-running workers and an optional exception handler

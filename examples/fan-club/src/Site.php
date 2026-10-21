@@ -37,7 +37,7 @@ final readonly class Site
         $file = new RotatingFileHandler($logDirectory . '/fan-club.log', maxFiles: 14, level: Level::Info);
 
         $stdout = new StreamHandler('php://stdout');
-        $stdout->setFormatter(new JsonFormatter());
+        $stdout->setFormatter(new JsonFormatter(includeStacktraces: true));
 
         $this->correlation = new CorrelationIdProcessor();
         $this->log         = new Logger('fan-club', [$file, new FingersCrossedHandler($stdout, activationLevel: Level::Error)], [$this->correlation]);

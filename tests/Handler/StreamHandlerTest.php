@@ -80,6 +80,24 @@ final class StreamHandlerTest extends TestCase
         new StreamHandler(42);
     }
 
+    public function testAFailedWriteThrowsInsteadOfLosingTheRecord(): void
+    {
+        $path = sys_get_temp_dir() . '/log-test-' . uniqid('', true) . '.log';
+        touch($path);
+        $stream = fopen($path, 'r');
+        self::assertIsResource($stream);
+        $handler = new StreamHandler($stream);
+
+        try {
+            $this->expectException(RuntimeException::class);
+
+            $handler->handle($this->record());
+        } finally {
+            fclose($stream);
+            unlink($path);
+        }
+    }
+
     public function testWritingAfterCloseWithoutUrlThrows(): void
     {
         $stream  = fopen('php://memory', 'a+');
