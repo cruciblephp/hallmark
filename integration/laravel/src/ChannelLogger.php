@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 namespace Hallmark\Laravel;
 
+use Hallmark\Event\EventCode;
 use Hallmark\Logger;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LoggerTrait;
@@ -64,5 +65,17 @@ final readonly class ChannelLogger implements LoggerInterface
     public function log($level, string|\Stringable $message, array $context = []): void
     {
         $this->logger->log($level, $message, $context);
+    }
+
+    /**
+     * A catalogued event, as {@see Logger::event()} writes it: its level, its message and its `event_code`. Laravel's
+     * `Illuminate\Log\Logger` passes a call it does not know to the channel, so `Log::channel('hallmark')->event(...)`
+     * arrives here.
+     *
+     * @param array<array-key, mixed> $context
+     */
+    public function event(EventCode $event, array $context = []): void
+    {
+        $this->logger->event($event, $context);
     }
 }

@@ -27,6 +27,28 @@ Package discovery registers `HallmarkServiceProvider`, which adds a `hallmark` d
 | `replace_placeholders` | `false` | Interpolate `{placeholder}` tokens, as `PsrLogMessageProcessor` does |
 | `name` | the environment | The channel name on each record |
 | `days` | none | One file per day, `days` of them kept, as `RotatingFileHandler` writes them |
+| `formatter` | the handler's own, a `LineFormatter` | A formatter class, built by the container; `default` keeps the handler's own |
+| `formatter_with` | none | The formatter's constructor arguments, by name |
+| `processors` | none | Processor classes, each a class or `['processor' => class, 'with' => arguments]`, run after the channel's own |
+
+The last three are read as Laravel's log manager reads them for every channel. A channel that writes one JSON object per line, each line at most 4,096 bytes and carrying an id of its own:
+
+```php
+// config/logging.php
+'hallmark' => [
+    'driver'         => 'hallmark',
+    'path'           => storage_path('logs/laravel.log'),
+    'formatter'      => \Hallmark\Formatter\JsonFormatter::class,
+    'formatter_with' => ['maxLineBytes' => 4096],
+    'processors'     => [
+        ['processor' => \Hallmark\Processor\UidProcessor::class, 'with' => ['length' => 16, 'perRecord' => true]],
+    ],
+],
+```
+
+<!-- not run: Laravel configuration; tests/Laravel/HallmarkChannelTest.php holds it -->
+
+A processor is built by the container, so an interface it takes is filled from the application's bindings: binding `Hallmark\Processor\IdGenerator` in a service provider gives `UidProcessor` the application's kind of id, with nothing in the config that `config:cache` cannot hold.
 
 A value is read as `env()` gives it: `env('LOG_DAILY_DAYS', 14)` is the string `"14"` when the variable is set, and is read as `14`; a boolean may be `"1"` or `"0"`. Any other value, `'days' => 'fourteen'`, is refused with an `InvalidArgumentException` naming the key, rather than dropped: a channel that silently stops rotating is worse than one that fails. Laravel catches it and logs the failure, and the channel's records after it, through its emergency logger, `storage/logs/laravel.log` unless an `emergency` channel names another path.
 

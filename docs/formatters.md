@@ -58,6 +58,7 @@ new JsonFormatter(
     ?string $dateFormat = null,
     bool $ignoreEmptyContextAndExtra = false,
     bool $includeStacktraces = false,
+    ?int $maxLineBytes = null,
 );
 ```
 
@@ -84,6 +85,30 @@ $log->info('a context', ['order' => 4711]);
 ```
 
 `formatBatch()`, which the decorators call, lays out several records as one JSON array (`BatchMode::Json`) or one object per line (`BatchMode::Newlines`).
+
+### A line cap
+
+`$maxLineBytes` caps each record's JSON, its newline counted, for a writer that keeps a line whole only up to a size, such as a shell script appending to the same file. A record that would pass the cap has its longest string in the message, the context or the extra cut until it fits, so the short facts survive whole, and the record says so with `extra.truncated`. A cut never splits a UTF-8 character. When no string is left to cut, the context and the extra go. A record whose channel and date alone pass the cap is refused with a `RuntimeException`, so a line is never written over it:
+
+```php
+use Hallmark\Formatter\JsonFormatter;
+use Hallmark\Handler\StreamHandler;
+use Hallmark\Logger;
+
+$handler = new StreamHandler('php://stdout');
+$handler->setFormatter(new JsonFormatter(dateFormat: 'Y-m-d', maxLineBytes: 220));
+$log = new Logger('app', [$handler]);
+
+$log->info('import done', ['file' => 'orders.csv', 'rows' => str_repeat('row,', 100)]);
+$log->info('short', ['file' => 'orders.csv']);
+```
+
+```text
+{"message":"import done","context":{"file":"orders.csv","rows":"row,row,row,row,row,row,row,row,row,row,row,row,row,r"},"level":200,"level_name":"INFO","channel":"app","datetime":"2026-10-29","extra":{"truncated":true}}
+{"message":"short","context":{"file":"orders.csv"},"level":200,"level_name":"INFO","channel":"app","datetime":"2026-10-29","extra":{}}
+```
+
+Monolog has no line cap: with `$maxLineBytes` left `null`, the JSON is Monolog's.
 
 ## Values
 

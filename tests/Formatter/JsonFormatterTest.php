@@ -16,7 +16,13 @@ use function array_keys;
 use function explode;
 use function ini_set;
 use function json_decode;
+use function preg_match;
+use function range;
+use function str_repeat;
+use function strlen;
 
+use Hallmark\Exception\InvalidArgumentException;
+use Hallmark\Exception\RuntimeException;
 use Hallmark\Formatter\BatchMode;
 use Hallmark\Formatter\JsonFormatter;
 use Hallmark\Formatter\NormalizerFormatter;
@@ -177,6 +183,85 @@ final class JsonFormatterTest extends TestCase
 
         self::assertStringContainsString('"datetime":"2026-07-28"', $output);
         self::assertStringContainsString('"at":"2026-07-27"', $output);
+    }
+
+    public function testALineWithinTheCapIsWrittenAsWithoutOne(): void
+    {
+        $record = $this->record(message: 'short', context: ['id' => 7]);
+
+        self::assertSame((new JsonFormatter())->format($record), (new JsonFormatter(maxLineBytes: 4096))->format($record));
+    }
+
+    public function testALineOverTheCapIsCutToFitAndSaysSo(): void
+    {
+        $output  = (new JsonFormatter(maxLineBytes: 200))->format($this->record(message: str_repeat('m', 1000)));
+        $decoded = json_decode(trim($output), true);
+
+        self::assertLessThanOrEqual(200, strlen($output));
+        self::assertStringEndsWith("\n", $output);
+        self::assertMatchesShape('array{message: non-empty-string, extra: array{truncated: true}}', $decoded);
+        self::assertStringStartsWith('mmm', $decoded['message']);
+    }
+
+    public function testTheLongestStringIsCutFirstSoShortFactsSurvive(): void
+    {
+        $output  = (new JsonFormatter(maxLineBytes: 300))->format($this->record(context: ['id' => 'keep', 'blob' => str_repeat('b', 2000)]));
+        $decoded = json_decode(trim($output), true);
+
+        self::assertLessThanOrEqual(300, strlen($output));
+        self::assertMatchesShape('array{message: string, context: array{id: string, blob: string}}', $decoded);
+        self::assertSame('test', $decoded['message']);
+        self::assertSame('keep', $decoded['context']['id']);
+    }
+
+    public function testTheCutNeverSplitsAUtf8Character(): void
+    {
+        // Four caps in a row, so the cut lands on both halves of a two-byte character.
+        foreach ([200, 201, 202, 203] as $cap) {
+            $output  = (new JsonFormatter(maxLineBytes: $cap))->format($this->record(message: str_repeat('é', 500)));
+            $decoded = json_decode(trim($output), true);
+
+            // A split character would reach the encoder as a bad byte and come out as U+FFFD.
+            self::assertLessThanOrEqual($cap, strlen($output));
+            self::assertMatchesShape('array{message: string}', $decoded);
+            self::assertSame(1, preg_match('/^(?:é)+$/u', $decoded['message']));
+        }
+    }
+
+    public function testBagsWithNothingLeftToCutAreDropped(): void
+    {
+        $output  = (new JsonFormatter(maxLineBytes: 200))->format($this->record(context: range(1, 1000)));
+        $decoded = json_decode(trim($output), true);
+
+        self::assertLessThanOrEqual(200, strlen($output));
+        self::assertMatchesShape('array{message: string, context: array<mixed>, extra: array{truncated: true}}', $decoded);
+        self::assertSame([], $decoded['context']);
+    }
+
+    public function testABatchCapsEveryRecord(): void
+    {
+        $output = (new JsonFormatter(batchMode: BatchMode::Newlines, maxLineBytes: 180))->formatBatch([
+            $this->record(message: str_repeat('a', 900)),
+            $this->record(message: str_repeat('b', 900)),
+        ]);
+
+        foreach (explode("\n", $output) as $line) {
+            self::assertLessThanOrEqual(179, strlen($line));
+        }
+    }
+
+    public function testARecordWhoseFixedFieldsPassTheCapIsRefused(): void
+    {
+        $this->expectException(RuntimeException::class);
+
+        (new JsonFormatter(maxLineBytes: 100))->format($this->record(channel: str_repeat('c', 200)));
+    }
+
+    public function testANonPositiveCapIsRefused(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new JsonFormatter(maxLineBytes: 0);
     }
 
     private static int $throwLine = 0;

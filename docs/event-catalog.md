@@ -53,6 +53,14 @@ ERROR: Payment authorization failed {"order":4711,"event_code":"PAY-1001"}
 
 `Logger::event()` logs at the event's level, with its message, and adds the code to the context as `event_code`, where a log store can search and group by it.
 
+On a Laravel `hallmark` channel the same call goes through Laravel's logger, which passes a method it does not know to the channel:
+
+```php
+Log::channel('hallmark')->event(PaymentEvent::AuthorizationFailed, ['order' => 4711]);
+```
+
+<!-- not run: needs a Laravel application; tests/Laravel/HallmarkChannelTest.php holds it -->
+
 ## Validating a catalog
 
 `EventCatalog::validate()` checks every case of the enums it is given and returns what is wrong, one sentence each; `assertValid()` throws an `InvalidArgumentException` listing them. Three rules hold:

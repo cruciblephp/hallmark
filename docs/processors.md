@@ -73,7 +73,59 @@ retrying the gateway {"file":"sample.php","line":14,"class":"Checkout","function
 
 Both stamp every record with one random hex id, so the lines of a request can be found together, and both get a new one on `reset()`.
 
-`UidProcessor(int $length = 7)` writes `extra.uid`, 1 to 32 characters. `getUid()` returns it.
+`UidProcessor(int $length = 7, bool $perRecord = false, ?IdGenerator $generator = null)` writes `extra.uid`, 1 to 32 characters. `getUid()` returns it. With `$perRecord`, each record gets a uid of its own, an id for the line itself that a reader can cite and de-duplicate by, and `getUid()` returns the last one stamped:
+
+```php
+use Hallmark\Handler\TestHandler;
+use Hallmark\Logger;
+use Hallmark\Processor\UidProcessor;
+
+$handler = new TestHandler();
+$log     = new Logger('app', [$handler], [new UidProcessor(16, perRecord: true)]);
+
+$log->info('first');
+$log->info('second');
+
+[$a, $b] = array_map(static fn ($record) => $record->extra['uid'], $handler->getRecords());
+echo strlen($a), ' ', $a === $b ? 'one uid' : 'a uid each', "\n";
+```
+
+```text
+16 a uid each
+```
+
+An `IdGenerator` gives the ids the application's own kind instead of random hex, and `$length` then does not apply: a ULID, sortable by time as Laravents' message ids are, or an id the application already holds. In Laravel, binding the interface in the container is enough: a channel's `processors` receive it ([Laravel](laravel.md)).
+
+```php
+use Hallmark\Handler\TestHandler;
+use Hallmark\Logger;
+use Hallmark\Processor\IdGenerator;
+use Hallmark\Processor\UidProcessor;
+
+final class Numbered implements IdGenerator
+{
+    private int $n = 0;
+
+    public function generate(): string
+    {
+        return 'line-' . ++$this->n;
+    }
+}
+
+$handler = new TestHandler();
+$log     = new Logger('app', [$handler], [new UidProcessor(perRecord: true, generator: new Numbered())]);
+
+$log->info('first');
+$log->info('second');
+
+echo implode(' ', array_map(static fn ($record) => $record->extra['uid'], $handler->getRecords())), "\n";
+```
+
+```text
+line-2 line-3
+```
+
+The processor takes an id once when it is built, so the first record's is the second the generator makes.
 
 `CorrelationIdProcessor(string $key = 'correlation_id', ?string $id = null, int $length = 16)` writes `extra.correlation_id`, or the key you give, 1 to 64 characters. `adopt()` takes an id from upstream, such as an incoming `X-Request-Id`, and `reset($id)` starts the next one. A record that already carries the key, in its context or its extra, is left as it is, so a line never has two ids:
 

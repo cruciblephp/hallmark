@@ -2,6 +2,25 @@
 
 Every release, as it ships.
 
+## v1.4.0 - 2026-10-29
+
+- Added `IdGenerator`, taken by `UidProcessor`, so the application gives the ids its own kind, such as the ULIDs Laravents mints; in Laravel, binding the interface is enough for a channel's processors
+
+## v1.3.1 - 2026-10-29
+
+- Removed `NormalizerFormatter::RFC3339_MS`: `dateFormat` already takes `Y-m-d\TH:i:s.vp`, which writes `Z` for a UTC time and the offset otherwise
+
+## v1.3.0 - 2026-10-29
+
+- Added `NormalizerFormatter::RFC3339_MS`, RFC 3339 to the millisecond: a UTC time ends in `Z`, any other in its offset
+- Added `event()` to the Laravel channel's logger, so `Log::channel('hallmark')->event()` logs a catalogued event
+
+## v1.2.0 - 2026-10-29
+
+- Added `maxLineBytes` to `JsonFormatter`, a cap on each record's line: a record over it has its longest strings cut on a UTF-8 boundary until it fits and is marked `extra.truncated`, and one whose fixed fields alone pass it is refused
+- Added `perRecord` to `UidProcessor`, so each record gets a uid of its own, an id for the line itself
+- Added the `formatter`, `formatter_with` and `processors` keys to the Laravel `hallmark` channel, read as Laravel's log manager reads them for every channel
+
 ## v1.1.0 - 2026-10-20
 
 - Security: an exception's trace never carries the call's arguments, so a password passed to the function that threw no longer reaches the log past `RedactionProcessor` when `zend.exception_ignore_args` is off; the JSON writes each frame as `file:line` and a line writes what Monolog writes under PHP's production ini
